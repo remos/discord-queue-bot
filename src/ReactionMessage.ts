@@ -1,127 +1,75 @@
-import { MessageReaction, User, EmojiIdentifierResolvable, Message} from "discord.js";
+import { MessageReaction, User, EmojiIdentifierResolvable, Message } from "discord.js";
 
 import {compareEmoji} from './util';
+import { ComparisonMap } from "./ComparisonMap";
+import { ComparisonSet } from './ComparisonSet';
 
 interface ReactionCallback {
+    /** Called when receiving the reaction, return false to remove the reaction (button behaviour) otherwise the reaction will stay */
     collect?: (reaction: MessageReaction, user: User) => boolean;
     remove?: (reaction: MessageReaction, user: User) => void;
     dispose?: (reaction: MessageReaction, user: User) => void;
+    /** Validate a user's reaction should remain - return true to keep a reaction, false to remove */
     validate?: (reaction: MessageReaction, user: User) => boolean;
     condition?: () => boolean;
 }
 
 interface DefaultReactionCallback extends ReactionCallback {
+    /** Set true to automatically remove any extra reactions */
     autoRemove?: boolean;
 }
 
-interface SpecificReactionCallback extends ReactionCallback {
+export interface ReactionOption extends ReactionCallback {
     emoji: EmojiIdentifierResolvable;
+}
+
+export class ReactionMap {
+    map: ComparisonMap<EmojiIdentifierResolvable, ReactionOption>;
+
+    constructor(options: ReactionOption[]) {
+        this.map = new ComparisonMap(compareEmoji, options.map(
+            option=>({
+                key: option.emoji,
+                value: option
+            })
+        ));
+    }
+
+    add(option: ReactionOption): void {
+        this.map.add(option.emoji, option);
+    }
+
+    remove(option: ReactionOption): ReactionOption {
+        return this.map.remove(option.emoji);
+    }
+
+    get(emoji: EmojiIdentifierResolvable): ReactionOption {
+        return this.map.get(emoji);
+    }
+
+    has(emoji: EmojiIdentifierResolvable): boolean {
+        return this.map.has(emoji);
+    }
+
+    getValues(): ReactionOption[] {
+        return this.map.getValues();
+    }
 }
 
 export class ReactionMessage {
     message: Message;
-    options: SpecificReactionCallback[];
+    optionMap: ReactionMap;
     defaultCallback: DefaultReactionCallback;
 
-    constructor(message: Message, options: SpecificReactionCallback[], defaultCallback?: DefaultReactionCallback) {
+    constructor(message: Message, options: ReactionOption[], defaultCallback?: DefaultReactionCallback) {
         this.message = message;
-        this.options = options;
+        this.optionMap = new ReactionMap(options);
         this.defaultCallback = defaultCallback;
 
-        this.prepare();
+        this.rebuildReactions().then(this.createReactionCollector);
     }
 
-    getSpecificOptionByEmoji(emoji: EmojiIdentifierResolvable): [SpecificReactionCallback, number] {
-        for(let i=0; i<this.options.length; i++) {
-            const option = this.options[i];
-
-            if(compareEmoji(option.emoji, emoji)) {
-                return [option, i];
-            }
-        }
-
-        return [null, -1];
-    }
-
-    getSpecificOption(reaction: MessageReaction): [SpecificReactionCallback, number] {
-        return this.getSpecificOptionByEmoji(reaction.emoji);
-    }
-
-    getCallback(reaction: MessageReaction): DefaultReactionCallback | SpecificReactionCallback {
-        const [callback] = this.getSpecificOption(reaction);
-
-        return callback || this.defaultCallback;
-    }
-
-    addOption(option: SpecificReactionCallback): void {
-        const [,i] = this.getSpecificOptionByEmoji(option.emoji);
-
-        if(i>=0) {
-            this.options.splice(i, 1);
-        }
-
-        this.options.push(option);
-
-        this.rebuildReactions();
-    }
-
-    removeOption(option: SpecificReactionCallback): void {
-        const [,i] = this.getSpecificOptionByEmoji(option.emoji);
-
-        if(i>=0) {
-            this.options.splice(i, 1);
-        }
-
-        this.rebuildReactions();
-    }
-
-    async rebuildReactions(): Promise<MessageReaction[]> {
-        this.message = await this.message.fetch();
-
-        const existingReactions = [];
-        const promises = [];
-
-        for(const reaction of this.message.reactions.cache.array()) {
-            promises.push(reaction.users.fetch().then((users)=>{
-                if(users.size) {
-                    const [option, i] = this.getSpecificOption(reaction);
-                    if(!option || (option.condition && !option.condition())) {
-                        if(this.defaultCallback && this.defaultCallback.autoRemove) {
-                            reaction.remove();
-                        } else {
-                            reaction.users.remove(this.message.client.user);
-                        }
-                    } else if(option) {
-                        existingReactions.push(i);
-                    }
-    
-                    if(option && option.validate) {
-                        for(const user of users.array()) {
-                            if(user !== user.client.user && !option.validate(reaction, user)) {
-                                reaction.users.remove(user);
-                            }
-                        }
-                    }
-                }
-            }));
-        }
-
-        await Promise.all(promises);
-
-        const reactionPromises: Promise<MessageReaction>[] = [];
-        for(let i=0; i<this.options.length; i++) {
-            const option = this.options[i];
-            if(existingReactions.indexOf(i) < 0 && (!option.condition || option.condition())) {
-                reactionPromises.push(this.message.react(option.emoji));
-            }
-        }
-
-        return Promise.all(reactionPromises);
-    }
-
-    async prepare(): Promise<void> {
-        await this.rebuildReactions();
-
+    private createReactionCollector = (): void => {
         this.message.createReactionCollector((_, user)=>{
             return user != user.client.user;
         }, {dispose: true})
@@ -159,5 +107,68 @@ export class ReactionMessage {
 
                 this.rebuildReactions();
             });
+    };
+
+    getOption(reaction: MessageReaction): ReactionOption {
+        return this.optionMap.get(reaction.emoji);
+    }
+
+    getCallback(reaction: MessageReaction): ReactionCallback {
+        const callback = this.optionMap.get(reaction.emoji);
+
+        return callback || this.defaultCallback;
+    }
+
+    addOption(option: ReactionOption): void {
+        this.optionMap.add(option);
+        this.rebuildReactions();
+    }
+
+    removeOption(option: ReactionOption): void {
+        this.optionMap.remove(option);
+        this.rebuildReactions();
+    }
+
+    async rebuildReactions(): Promise<MessageReaction[]> {
+        this.message = await this.message.fetch();
+
+        const existingReactions = new ComparisonSet(compareEmoji);
+        const promises = [];
+
+        for(const reaction of this.message.reactions.cache.array()) {
+            promises.push(reaction.users.fetch().then((users)=>{
+                if(users.size) {
+                    const option = this.getOption(reaction);
+                    if(!option || (option.condition && !option.condition())) {
+                        if(this.defaultCallback && this.defaultCallback.autoRemove) {
+                            reaction.remove();
+                        } else {
+                            reaction.users.remove(this.message.client.user);
+                        }
+                    } else if(option) {
+                        existingReactions.add(option.emoji);
+                    }
+    
+                    if(option && option.validate) {
+                        for(const user of users.array()) {
+                            if(user !== user.client.user && !option.validate(reaction, user)) {
+                                reaction.users.remove(user);
+                            }
+                        }
+                    }
+                }
+            }));
+        }
+
+        await Promise.all(promises);
+
+        const reactionPromises: Promise<MessageReaction>[] = [];
+        for(const option of this.optionMap.getValues()) {
+            if(!existingReactions.has(option.emoji) && (!option.condition || option.condition())) {
+                reactionPromises.push(this.message.react(option.emoji));
+            }
+        }
+
+        return Promise.all(reactionPromises);
     }
 }

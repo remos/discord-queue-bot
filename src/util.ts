@@ -1,5 +1,11 @@
 import {EmojiIdentifierResolvable, GuildEmoji, ReactionEmoji} from 'discord.js';
 
+/**
+ * Compares two EmojiIdentifiers e.g. a GuildEmoji and the unicode emoji string
+ * @param a emoji to compare
+ * @param b emoji to compare to
+ * @returns true if `a` represents the same emoji as `b`
+ */
 export function compareEmoji(a: EmojiIdentifierResolvable, b: EmojiIdentifierResolvable): boolean {
     if(!a || !b) {
         return a === b;

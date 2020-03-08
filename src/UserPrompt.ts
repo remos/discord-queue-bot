@@ -17,6 +17,8 @@ export class UserPrompt {
     promptOptions: PromptOption[];
     failure?: PromptCallback;
 
+    startTime?: number;
+
     cancelled: boolean;
     removed: boolean;
 
@@ -44,6 +46,10 @@ export class UserPrompt {
         options?: MessageOptions | MessageAdditions | (MessageOptions & { split?: false }) | MessageAdditions,
     ): Promise<EmojiIdentifierResolvable>;
     async prompt(...args: any[]): Promise<EmojiIdentifierResolvable> {
+        if(this.cancelled) {
+            return;
+        }
+
         const dmChannel = this.user.dmChannel || await this.user.createDM();
 
         this.message = await dmChannel.send(...args);
@@ -56,6 +62,7 @@ export class UserPrompt {
             this.message.react(promptOption.emoji);
         }
 
+        this.startTime = Date.now();
         const reactions = await this.message.awaitReactions((reaction: MessageReaction, user: User)=>(
             user != user.client.user && this.promptOptions.findIndex(promptOption=>compareEmoji(promptOption.emoji, reaction.emoji)) >= 0
         ), {
@@ -63,7 +70,7 @@ export class UserPrompt {
             time: this.timeout
         });
 
-        this._removeMessage();
+        this.removeMessage();
 
         if(this.cancelled) {
             return;
@@ -82,7 +89,7 @@ export class UserPrompt {
         return emoji;
     }
 
-    _removeMessage(): void {
+    private removeMessage(): void {
         if(this.removed) {
             return;
         }
@@ -95,19 +102,22 @@ export class UserPrompt {
                     try {
                         await message.delete();
                     } catch(ignored) {
-                        //
+                        // Ignore failure to delete the message
                     }
                 }
             });
         }
     }
 
-    cancel(): void {
-        if(this.cancelled) {
-            return;
+    /**
+     * @returns the time remaining on the prompt
+     */
+    cancel(): number {
+        if(!this.cancelled) {
+            this.cancelled = true;
+            this.removeMessage();
         }
 
-        this.cancelled = true;
-        this._removeMessage();
+        return Date.now() - this.startTime;
     }
 }

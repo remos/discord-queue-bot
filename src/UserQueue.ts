@@ -53,6 +53,11 @@ export class UserQueue {
         this.length = this.users.length;
     }
 
+    insert(user: User, index: number): void {
+        this.users.splice(Math.min(this.users.length, index), 0, user);
+        this.length = this.users.length;
+    }
+
     map<T>(callbackFn: (user: User) => T): T[] {
         return this.users.map(callbackFn);
     }
