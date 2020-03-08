@@ -9,6 +9,16 @@ import { ComparisonMap } from './ComparisonMap';
 
 type QueueType = 'available' | 'active' | 'pending' | 'queue';
 
+export interface GetMessageFunction {
+    (vars: {
+        user: User;
+        counts: {
+            skips: number;
+            timeouts: number;
+        }
+    }): string;
+}
+
 interface QueueOptions {
     existingMessage?: Message;
     paired?: boolean;
@@ -23,8 +33,8 @@ interface QueueOptions {
     acceptEmoji?: EmojiIdentifierResolvable;
     skipEmoji?: EmojiIdentifierResolvable;
 
-    promptAcceptOrSkipMessage?: string;
-    promptAcceptMessage?: string;
+    promptAcceptOrSkipMessage?: string | GetMessageFunction;
+    promptAcceptMessage?: string | GetMessageFunction;
 
     userToString?: (user: User, queueType: QueueType) => string;
 }
@@ -60,8 +70,8 @@ export class ReactionQueue {
         skips: number;
     }>;
 
-    promptAcceptOrSkipMessage: string;
-    promptAcceptMessage: string;
+    promptAcceptOrSkipMessage: string | GetMessageFunction;
+    promptAcceptMessage: string | GetMessageFunction;
 
     pendingTimeout: number;
     maxPendingTimeouts: number;
@@ -200,7 +210,18 @@ export class ReactionQueue {
             count: 0
         });
 
-        prompt.prompt(this.queue.length ? this.promptAcceptOrSkipMessage : this.promptAcceptMessage);
+        prompt.prompt(this.getMessageTemplate(user, this.queue.length ? this.promptAcceptOrSkipMessage : this.promptAcceptMessage));
+    }
+
+    private getMessageTemplate(user: User, template: string | GetMessageFunction): string {
+        if(typeof template === 'string') {
+            return template;
+        }
+
+        return template({
+            user: user,
+            counts: this.queuePendingCountMap.get(user)
+        });
     }
 
     private checkQueueAndPromote(): void {

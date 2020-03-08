@@ -39,7 +39,8 @@ client.on('ready', async ()=>{
 
     new ReactionQueue(channel as TextChannel, 'FTO', {
         paired: true,
-        pendingTimeout: 600000
+        pendingTimeout: 600000,
+        promptAcceptOrSkipMessage: ({counts: {skips}}): string=>`Accept or skip? (Skip #${skips})`
     });
 });
 
