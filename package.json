@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc && chmod +x dist/index.js",
-    "prestart": "npm --scripts-prepend-node-path run build",
+    "prestart": "npm run build --scripts-prepend-node-path",
     "start": "dist/index.js"
   },
   "dependencies": {
