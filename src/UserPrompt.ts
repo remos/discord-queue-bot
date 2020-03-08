@@ -1,0 +1,113 @@
+import {User, EmojiIdentifierResolvable, MessageReaction, StringResolvable, Message, MessageOptions, MessageAdditions, APIMessage} from 'discord.js';
+import { compareEmoji } from './util';
+
+interface PromptCallback {
+    (user: User, emoji: EmojiIdentifierResolvable): void;
+}
+
+export interface PromptOption {
+    emoji: EmojiIdentifierResolvable;
+    callback?: PromptCallback;
+}
+
+export class UserPrompt {
+    user: User;
+    message: Message;
+    timeout: number;
+    promptOptions: PromptOption[];
+    failure?: PromptCallback;
+
+    cancelled: boolean;
+    removed: boolean;
+
+    constructor(user: User, timeout: number, promptOptions: PromptOption[], failure?: PromptCallback) {
+        this.user = user;
+        this.timeout = timeout;
+        this.promptOptions = promptOptions;
+        this.failure = failure;
+
+        this.cancelled = false;
+        this.removed = false;
+    }
+    
+    async prompt(
+        options?:
+            | MessageOptions
+            | MessageAdditions
+            | APIMessage
+            | (MessageOptions & { split?: false })
+            | MessageAdditions
+            | APIMessage,
+    ): Promise<EmojiIdentifierResolvable>;
+    async prompt(
+        content?: StringResolvable,
+        options?: MessageOptions | MessageAdditions | (MessageOptions & { split?: false }) | MessageAdditions,
+    ): Promise<EmojiIdentifierResolvable>;
+    async prompt(...args: any[]): Promise<EmojiIdentifierResolvable> {
+        const dmChannel = this.user.dmChannel || await this.user.createDM();
+
+        this.message = await dmChannel.send(...args);
+
+        if(this.cancelled) {
+            return;
+        }
+
+        for(const promptOption of this.promptOptions) {
+            this.message.react(promptOption.emoji);
+        }
+
+        const reactions = await this.message.awaitReactions((reaction: MessageReaction, user: User)=>(
+            user != user.client.user && this.promptOptions.findIndex(promptOption=>compareEmoji(promptOption.emoji, reaction.emoji)) >= 0
+        ), {
+            max: 1,
+            time: this.timeout
+        });
+
+        this._removeMessage();
+
+        if(this.cancelled) {
+            return;
+        }
+
+        const emoji: EmojiIdentifierResolvable = reactions.size ? reactions.first().emoji : null;
+        if(emoji) {
+            const promptOption = this.promptOptions.find(promptOption=>compareEmoji(promptOption.emoji, emoji));
+            if(promptOption.callback) {
+                promptOption.callback(this.user, emoji);
+            }
+        } else if(this.failure) {
+            this.failure(this.user, emoji);
+        }
+
+        return emoji;
+    }
+
+    _removeMessage(): void {
+        if(this.removed) {
+            return;
+        }
+
+        this.removed = true;
+
+        if(this.message) {
+            this.message.fetch().then(async message=>{
+                if(message) {
+                    try {
+                        await message.delete();
+                    } catch(ignored) {
+                        //
+                    }
+                }
+            });
+        }
+    }
+
+    cancel(): void {
+        if(this.cancelled) {
+            return;
+        }
+
+        this.cancelled = true;
+        this._removeMessage();
+    }
+}
