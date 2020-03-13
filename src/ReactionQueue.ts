@@ -6,7 +6,7 @@ import {ReactionMessage, ReactionOption} from './ReactionMessage';
 import {UserPrompt} from './UserPrompt';
 import { ComparisonMap } from './ComparisonMap';
 import { ComparisonQueue } from './ComparisonQueue';
-import { Comparitor } from './util';
+import { Comparator } from './util';
 
 type QueueType = 'available' | 'active' | 'pending' | 'queue';
 
@@ -63,7 +63,7 @@ function defaultUserToString(user: User, queueType: QueueType): string {
 }
 
 type UserQueue = ComparisonQueue<User>;
-const USER_COMPARITOR: Comparitor<User> = (a: User, b: User): boolean => a.id === b.id;
+const USER_COMPARATOR: Comparator<User> = (a: User, b: User): boolean => a.id === b.id;
 
 export class ReactionQueue {
     private channel: TextChannel | DMChannel;
@@ -150,12 +150,12 @@ export class ReactionQueue {
         this.additionalOptions = additionalOptions;
 
         if(requireAvailable) {
-            this.available = new ComparisonQueue(USER_COMPARITOR);
+            this.available = new ComparisonQueue(USER_COMPARATOR);
         }
 
-        this.active = new ComparisonQueue(USER_COMPARITOR);
-        this.pending = new ComparisonQueue(USER_COMPARITOR);
-        this.queue = new ComparisonQueue(USER_COMPARITOR);
+        this.active = new ComparisonQueue(USER_COMPARATOR);
+        this.pending = new ComparisonQueue(USER_COMPARATOR);
+        this.queue = new ComparisonQueue(USER_COMPARATOR);
         this.promptMap = new ComparisonMap((a, b)=>a.id===b.id);
         this.promptTimeoutCountMap = new ComparisonMap((a, b)=>a.id===b.id);
 

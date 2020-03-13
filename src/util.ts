@@ -1,6 +1,6 @@
 import {EmojiIdentifierResolvable, GuildEmoji, ReactionEmoji} from 'discord.js';
 
-export interface Comparitor<K> {
+export interface Comparator<K> {
     (a: K, b: K): boolean;
 }
 

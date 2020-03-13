@@ -1,14 +1,14 @@
-import {Comparitor} from './util';
+import {Comparator} from './util';
 
 export class ComparisonQueue<T> {
     queue: T[];
     length: number;
-    comparitor: Comparitor<T>;
+    comparator: Comparator<T>;
 
-    constructor(comparitor: Comparitor<T>, initial: T[] = []) {
+    constructor(comparator: Comparator<T>, initial: T[] = []) {
         this.queue = initial;
         this.length = 0;
-        this.comparitor = comparitor;
+        this.comparator = comparator;
     }
 
     join(joiner: string): string {
@@ -20,7 +20,7 @@ export class ComparisonQueue<T> {
     }
 
     indexOf(value: T): number {
-        return this.queue.findIndex(testValue=>this.comparitor(value, testValue));
+        return this.queue.findIndex(testValue=>this.comparator(value, testValue));
     }
 
     remove(value: T): T {

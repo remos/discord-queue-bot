@@ -1,4 +1,4 @@
-import {Comparitor} from './util';
+import {Comparator} from './util';
 
 export interface InefficientMapEntry<K, V> {
     key: K;
@@ -7,18 +7,18 @@ export interface InefficientMapEntry<K, V> {
 
 export class ComparisonMap<K, V> {
     list: InefficientMapEntry<K, V>[];
-    comparitor: Comparitor<K>;
+    comparator: Comparator<K>;
 
-    constructor(comparitor: Comparitor<K>, initial: InefficientMapEntry<K, V>[] = []) {
+    constructor(comparator: Comparator<K>, initial: InefficientMapEntry<K, V>[] = []) {
         this.list = initial;
-        this.comparitor = comparitor;
+        this.comparator = comparator;
     }
 
     private indexOf(key: K): number {
         for(let i=0; i<this.list.length; i++) {
             const entry = this.list[i];
 
-            if(this.comparitor(entry.key, key)) {
+            if(this.comparator(entry.key, key)) {
                 return i;
             }
         }

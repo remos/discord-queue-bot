@@ -1,16 +1,16 @@
-import {Comparitor} from './util';
+import {Comparator} from './util';
 
 export class ComparisonSet<T> {
     list: T[];
-    comparitor: Comparitor<T>;
+    comparator: Comparator<T>;
 
-    constructor(comparitor: Comparitor<T>, initial: T[] = []) {
+    constructor(comparator: Comparator<T>, initial: T[] = []) {
         this.list = initial;
-        this.comparitor = comparitor;
+        this.comparator = comparator;
     }
 
     private indexOf(value: T): number {
-        return this.list.findIndex(testValue=>this.comparitor(value, testValue));
+        return this.list.findIndex(testValue=>this.comparator(value, testValue));
     }
 
     add(value: T): void {
