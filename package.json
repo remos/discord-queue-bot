@@ -5,6 +5,11 @@
   "bin": "dist/cli.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
+  "homepage": "https://github.com/remos/discord-queue-bot",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/remos/discord-queue-bot.git"
+  },
   "files": [
     "dist/**/*"
   ],
