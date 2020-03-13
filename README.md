@@ -1,8 +1,15 @@
-## Quick start
-Clone, then install dependencies `yarn` or `npm i`
+# discord-queue-bot
+## CLI
+If using yarn, ensure you've configured your path correctly as per the [yarn installation guide](https://classic.yarnpkg.com/en/docs/install)
+```
+yarn global add discord-queue-bot
+```
+Run `discord-queue-bot` inside a directory with a `config.json` file (see [config.example.json](config.example.json) for an example)
 
-copy `config.example.json` to `config.json`, and fill in your token and channel id (you'll need to add your bot to your server beforehand)
+See `QueueOptions` in [src/ReactionQueue.ts](src/ReactionQueue.ts) for available configuration options
 
-Run using `yarn start` or `npm run start`
-
-Configure queue settings in [src/index.ts](src/index.ts). See `QueueOptions` in [src/ReactionQueue.ts](src/ReactionQueue.ts) for available options
+## As Library
+### Installation
+```
+yarn add discord-queue-bot
+```
