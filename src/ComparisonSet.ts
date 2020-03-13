@@ -12,15 +12,7 @@ export class ComparisonSet<T> {
     }
 
     private indexOf(value: T): number {
-        for(let i=0; i<this.list.length; i++) {
-            const entry = this.list[i];
-
-            if(this.comparitor(entry, value)) {
-                return i;
-            }
-        }
-
-        return -1;
+        return this.list.findIndex(testValue=>this.comparitor(value, testValue));
     }
 
     add(value: T): void {
