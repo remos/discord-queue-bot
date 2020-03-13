@@ -1,6 +1,4 @@
-interface Comparitor<K> {
-    (a: K, b: K): boolean;
-}
+import {Comparitor} from './util';
 
 export class ComparisonSet<T> {
     list: T[];

@@ -4,22 +4,18 @@ import {compareEmoji} from './util';
 import { ComparisonMap } from "./ComparisonMap";
 import { ComparisonSet } from './ComparisonSet';
 
-interface ReactionCallback {
+interface ReactionCallbacks {
     /** Called when receiving the reaction, return false to remove the reaction (button behaviour) otherwise the reaction will stay */
     collect?: (reaction: MessageReaction, user: User) => boolean;
     remove?: (reaction: MessageReaction, user: User) => void;
     dispose?: (reaction: MessageReaction, user: User) => void;
-    /** Validate a user's reaction should remain - return true to keep a reaction, false to remove */
+    /** Validate whether a user's reaction should remain or not - return true to keep a reaction, false to remove */
     validate?: (reaction: MessageReaction, user: User) => boolean;
+    /** Return true to display the option (have the bot react with at least 1) */
     condition?: () => boolean;
 }
 
-interface DefaultReactionCallback extends ReactionCallback {
-    /** Set true to automatically remove any extra reactions */
-    autoRemove?: boolean;
-}
-
-export interface ReactionOption extends ReactionCallback {
+export interface ReactionOption extends ReactionCallbacks {
     emoji: EmojiIdentifierResolvable;
 }
 
@@ -59,12 +55,12 @@ export class ReactionMap {
 export class ReactionMessage {
     message: Message;
     optionMap: ReactionMap;
-    defaultCallback: DefaultReactionCallback;
+    defaultOption: ReactionCallbacks;
 
-    constructor(message: Message, options: ReactionOption[], defaultCallback?: DefaultReactionCallback) {
+    constructor(message: Message, options: ReactionOption[], defaultOption?: ReactionCallbacks) {
         this.message = message;
         this.optionMap = new ReactionMap(options);
-        this.defaultCallback = defaultCallback;
+        this.defaultOption = defaultOption;
 
         this.rebuildReactions().then(this.createReactionCollector);
     }
@@ -113,10 +109,10 @@ export class ReactionMessage {
         return this.optionMap.get(reaction.emoji);
     }
 
-    getCallback(reaction: MessageReaction): ReactionCallback {
+    getCallback(reaction: MessageReaction): ReactionCallbacks {
         const callback = this.optionMap.get(reaction.emoji);
 
-        return callback || this.defaultCallback;
+        return callback || this.defaultOption;
     }
 
     addOption(option: ReactionOption): void {
@@ -140,7 +136,7 @@ export class ReactionMessage {
                 if(users.size) {
                     const option = this.getOption(reaction);
                     if(!option || (option.condition && !option.condition())) {
-                        if(this.defaultCallback && this.defaultCallback.autoRemove) {
+                        if(this.defaultOption && this.defaultOption.validate && !this.defaultOption.validate(reaction, null)) {
                             reaction.remove();
                         } else {
                             reaction.users.remove(this.message.client.user);

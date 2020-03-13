@@ -1,4 +1,20 @@
 {
-    "token": "bot-token",
-    "channelId": "channelid"
+    "token": "BOT.TOKEN.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "channelId": "CHANNELIDXXXXXXXXX",
+    "clearChannel": false,
+    "queues": [
+        {
+            "title": "Active",
+            "queueEmoji": "🎫",
+            "maxActive": 5,
+            "pendingTimeout": 600000
+        },
+        {
+            "title": "Users with partners",
+            "queueEmoji": "🎫",
+            "availableEmoji": "📋",
+            "requireAvailable": true,
+            "pendingTimeout": 600000
+        }
+    ]
 }

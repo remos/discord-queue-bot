@@ -1,5 +1,9 @@
 import {EmojiIdentifierResolvable, GuildEmoji, ReactionEmoji} from 'discord.js';
 
+export interface Comparitor<K> {
+    (a: K, b: K): boolean;
+}
+
 /**
  * Compares two EmojiIdentifiers e.g. a GuildEmoji and the unicode emoji string
  * @param a emoji to compare

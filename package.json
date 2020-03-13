@@ -1,12 +1,14 @@
 {
-  "name": "nopixel-discord-bot",
+  "name": "discord-queue-bot",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "bin": "dist/cli.js",
   "license": "MIT",
+  "engines": {
+    "node": ">= 12"
+  },
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
-    "prestart": "npm run build --scripts-prepend-node-path",
-    "start": "dist/index.js"
+    "build": "tsc && chmod +x dist/cli.js"
   },
   "dependencies": {
     "discord.js": "^12.0.1",

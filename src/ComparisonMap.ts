@@ -1,10 +1,8 @@
+import {Comparitor} from './util';
+
 export interface InefficientMapEntry<K, V> {
     key: K;
     value: V;
-}
-
-interface Comparitor<K> {
-    (a: K, b: K): boolean;
 }
 
 export class ComparisonMap<K, V> {

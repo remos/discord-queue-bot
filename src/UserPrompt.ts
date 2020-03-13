@@ -1,5 +1,6 @@
 import {User, EmojiIdentifierResolvable, MessageReaction, StringResolvable, Message, MessageOptions, MessageAdditions, APIMessage} from 'discord.js';
 import { compareEmoji } from './util';
+import { ComparisonQueue } from './ComparisonQueue';
 
 interface PromptCallback {
     (user: User, emoji: EmojiIdentifierResolvable): void;
@@ -8,6 +9,12 @@ interface PromptCallback {
 export interface PromptOption {
     emoji: EmojiIdentifierResolvable;
     callback?: PromptCallback;
+}
+
+export class UserQueue extends ComparisonQueue<User> {
+    constructor(initial?: User[]) {
+        super((a: User, b: User)=>a.id === b.id, initial);
+    }
 }
 
 export class UserPrompt {
@@ -45,7 +52,7 @@ export class UserPrompt {
         content?: StringResolvable,
         options?: MessageOptions | MessageAdditions | (MessageOptions & { split?: false }) | MessageAdditions,
     ): Promise<EmojiIdentifierResolvable>;
-    async prompt(...args: any[]): Promise<EmojiIdentifierResolvable> {
+    async prompt(...args: unknown[]): Promise<EmojiIdentifierResolvable> {
         if(this.cancelled) {
             return;
         }
@@ -63,12 +70,15 @@ export class UserPrompt {
         }
 
         this.startTime = Date.now();
-        const reactions = await this.message.awaitReactions((reaction: MessageReaction, user: User)=>(
-            user != user.client.user && this.promptOptions.findIndex(promptOption=>compareEmoji(promptOption.emoji, reaction.emoji)) >= 0
-        ), {
-            max: 1,
-            time: this.timeout
-        });
+        const reactions = await this.message.awaitReactions(
+            (reaction: MessageReaction, user: User)=>(
+                user != user.client.user &&
+                this.promptOptions.findIndex(
+                    promptOption=>compareEmoji(promptOption.emoji, reaction.emoji)
+                ) >= 0
+            ),
+            {max: 1, time: this.timeout}
+        );
 
         this.removeMessage();
 
