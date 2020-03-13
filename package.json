@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "bin": "dist/cli.js",
+  "types": "dist/index.d.ts",
   "license": "MIT",
+  "files": [
+    "dist/**/*"
+  ],
   "engines": {
     "node": ">= 12"
   },

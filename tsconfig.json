@@ -3,6 +3,7 @@
         "rootDir": "./src",
         "outDir": "./dist",
         "sourceMap": true,
+        "declaration": true,
         "moduleResolution": "node",
         "resolveJsonModule": true,
         "types": [
