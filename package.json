@@ -7,8 +7,8 @@
   "license": "MIT",
   "homepage": "https://github.com/remos/discord-queue-bot",
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/remos/discord-queue-bot.git"
+    "type": "git",
+    "url": "https://github.com/remos/discord-queue-bot.git"
   },
   "files": [
     "dist/**/*"
