@@ -18,6 +18,8 @@
   },
   "scripts": {
     "build": "tsc && chmod +x dist/cli.js"
+    "prestart": "tsc && chmod +x dist/cli.js",
+    "start": "dist/cli.js",
   },
   "dependencies": {
     "discord.js": "^12.0.1",
