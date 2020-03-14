@@ -6,16 +6,26 @@ export class ComparisonQueue<T> {
     comparator: Comparator<T>;
 
     constructor(comparator: Comparator<T>, initial: T[] = []) {
-        this.queue = initial;
+        this.queue = [];
         this.length = 0;
         this.comparator = comparator;
+
+        for(const queued of initial) {
+            this.push(queued);
+        }
     }
 
     join(joiner: string): string {
         return this.queue.join(joiner);
     }
 
-    get(index: number): T {
+    get(): T[];
+    get(index: number): T;
+    get(index: number = null): T | T[] {
+        if(index === null) {
+            return this.queue;
+        }
+
         return this.queue[index];
     }
 
@@ -24,13 +34,12 @@ export class ComparisonQueue<T> {
     }
 
     remove(value: T): T {
-        const index = this.indexOf(value);
-        if(index < 0) {
-            return;
+        let index;
+        let removedValue = null;
+        while((index = this.indexOf(value)) >= 0) {
+            removedValue = this.queue.splice(index, 1)[0];
+            this.length = this.queue.length;
         }
-
-        const removedValue = this.queue.splice(index, 1)[0];
-        this.length = this.queue.length;
 
         return removedValue;
     }

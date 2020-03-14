@@ -10,8 +10,12 @@ export class ComparisonMap<K, V> {
     comparator: Comparator<K>;
 
     constructor(comparator: Comparator<K>, initial: InefficientMapEntry<K, V>[] = []) {
-        this.list = initial;
+        this.list = [];
         this.comparator = comparator;
+
+        for(const entry of initial) {
+            this.add(entry.key, entry.value);
+        }
     }
 
     private indexOf(key: K): number {
@@ -43,7 +47,7 @@ export class ComparisonMap<K, V> {
         const index = this.indexOf(key);
         
         if(index < 0) {
-            return;
+            return null;
         }
 
         return this.list.splice(index, 1)[0].value;

@@ -5,8 +5,12 @@ export class ComparisonSet<T> {
     comparator: Comparator<T>;
 
     constructor(comparator: Comparator<T>, initial: T[] = []) {
-        this.list = initial;
+        this.list = [];
         this.comparator = comparator;
+
+        for(const value of initial) {
+            this.add(value);
+        }
     }
 
     private indexOf(value: T): number {
@@ -27,7 +31,7 @@ export class ComparisonSet<T> {
         const index = this.indexOf(value);
         
         if(index < 0) {
-            return;
+            return null;
         }
 
         return this.list.splice(index, 1)[0];
