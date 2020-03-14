@@ -17,7 +17,7 @@
     "node": ">= 12"
   },
   "scripts": {
-    "build": "tsc && chmod +x dist/cli.js"
+    "build": "tsc && chmod +x dist/cli.js",
     "prestart": "tsc && chmod +x dist/cli.js",
     "start": "dist/cli.js",
   },
