@@ -1,108 +1,73 @@
-import { MessageReaction, User, EmojiIdentifierResolvable, Message } from "discord.js";
+import {
+    MessageReaction, 
+    User,
+    EmojiIdentifierResolvable,
+    Message,
+    DiscordAPIError
+} from "discord.js";
 
 import {compareEmoji} from './util';
-import { ComparisonMap } from "./ComparisonMap";
-import { ComparisonSet } from './ComparisonSet';
+import {ComparisonSet} from './ComparisonSet';
+import {EmojiMap} from './EmojiMap';
+
+export interface ReactionCallback<T> {
+    (reaction: MessageReaction, user: User): T;
+}
 
 interface ReactionCallbacks {
     /** Called when receiving the reaction, return false to remove the reaction (button behaviour) otherwise the reaction will stay */
-    collect?: (reaction: MessageReaction, user: User) => boolean;
-    remove?: (reaction: MessageReaction, user: User) => void;
-    dispose?: (reaction: MessageReaction, user: User) => void;
+    collect?: ReactionCallback<boolean | void>;
+    remove?: ReactionCallback<void>;
+    dispose?: ReactionCallback<void>;
     /** Validate whether a user's reaction should remain or not - return true to keep a reaction, false to remove */
-    validate?: (reaction: MessageReaction, user: User) => boolean;
+    validate?: ReactionCallback<boolean>;
     /** Return true to display the option (have the bot react with at least 1) */
     condition?: () => boolean;
 }
+
+type CallbackMethodName = 'collect' | 'remove' | 'dispose';
 
 export interface ReactionOption extends ReactionCallbacks {
     emoji: EmojiIdentifierResolvable;
 }
 
-export class ReactionMap {
-    map: ComparisonMap<EmojiIdentifierResolvable, ReactionOption>;
-
-    constructor(options: ReactionOption[]) {
-        this.map = new ComparisonMap(compareEmoji, options.map(
-            option=>({
-                key: option.emoji,
-                value: option
-            })
-        ));
-    }
-
-    add(option: ReactionOption): void {
-        this.map.add(option.emoji, option);
-    }
-
-    remove(option: ReactionOption): ReactionOption {
-        return this.map.remove(option.emoji);
-    }
-
-    get(emoji: EmojiIdentifierResolvable): ReactionOption {
-        return this.map.get(emoji);
-    }
-
-    has(emoji: EmojiIdentifierResolvable): boolean {
-        return this.map.has(emoji);
-    }
-
-    getValues(): ReactionOption[] {
-        return this.map.getValues();
-    }
-}
-
 export class ReactionMessage {
     message: Message;
-    optionMap: ReactionMap;
+    optionMap: EmojiMap<ReactionOption>;
     defaultOption: ReactionCallbacks;
-
     constructor(message: Message, options: ReactionOption[], defaultOption?: ReactionCallbacks) {
         this.message = message;
-        this.optionMap = new ReactionMap(options);
+        this.optionMap = new EmojiMap<ReactionOption>(message.client, options);
         this.defaultOption = defaultOption;
 
         this.rebuildReactions().then(this.createReactionCollector);
     }
 
+    private callbackProxy = (callbackMethodName: CallbackMethodName) => (reaction: MessageReaction, user: User): void => {
+        if(user !== user.client.user) {
+            const callback = this.getCallback(reaction);
+            if(callback) {
+                if(callback[callbackMethodName]) {
+                    const result = callback[callbackMethodName](reaction, user);
+                    if(callbackMethodName === 'collect' && result === false) {
+                        reaction.users.remove(user);
+                    }
+                }
+            }
+        }
+
+        this.rebuildReactions();
+    };
+
     private createReactionCollector = (): void => {
         this.message.createReactionCollector((_, user)=>{
             return user != user.client.user;
-        }, {dispose: true})
-            .on('collect', (reaction, user) =>{
-                if(user !== user.client.user) {
-                    const callback = this.getCallback(reaction);
-                    if(callback) {
-                        if(callback.collect) {
-                            if(callback.collect(reaction, user) == false) {
-                                reaction.users.remove(user);
-                            }
-                        }
-                    }
-                }
-
-                this.rebuildReactions();
-            })
-            .on('remove', (reaction, user) => {
-                if(user !== user.client.user) {
-                    const callback = this.getCallback(reaction);
-                    if(callback) {
-                        callback.remove && callback.remove(reaction, user);
-                    }
-                }
-
-                this.rebuildReactions();
-            })
-            .on('dispose', (reaction, user) => {
-                if(user !== user.client.user) {
-                    const callback = this.getCallback(reaction);
-                    if(callback) {
-                        callback.dispose && callback.dispose(reaction, user);
-                    }
-                }
-
-                this.rebuildReactions();
-            });
+        }, {
+            dispose: true
+        })
+            .on('collect', this.callbackProxy('collect'))
+            .on('remove', this.callbackProxy('remove'))
+            .on('dispose', this.callbackProxy('dispose'));
     };
 
     getOption(reaction: MessageReaction): ReactionOption {
@@ -125,7 +90,7 @@ export class ReactionMessage {
         this.rebuildReactions();
     }
 
-    async rebuildReactions(): Promise<MessageReaction[]> {
+    async rebuildReactions(): Promise<void |MessageReaction[]> {
         this.message = await this.message.fetch();
 
         const existingReactions = new ComparisonSet(compareEmoji);
@@ -165,6 +130,10 @@ export class ReactionMessage {
             }
         }
 
-        return Promise.all(reactionPromises);
+        return Promise.all(reactionPromises).catch(e=>{
+            if(!(e instanceof DiscordAPIError) || e.code === 404) {
+                throw e;
+            }
+        });
     }
 }

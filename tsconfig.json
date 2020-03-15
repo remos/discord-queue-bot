@@ -5,7 +5,9 @@
         "sourceMap": true,
         "declaration": true,
         "moduleResolution": "node",
-        "resolveJsonModule": true,
+        "lib": [
+            "ES2019.Array"
+        ],
         "types": [
             "node",
             "jest"
