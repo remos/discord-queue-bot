@@ -138,10 +138,10 @@ export class ReactionQueue {
         this.maxPendingTimeouts = maxPendingTimeouts;
         this.maxPendingSkips = maxPendingSkips;
 
-        this.queueEmoji = queueEmoji;
-        this.availableEmoji = availableEmoji;
-        this.acceptEmoji = acceptEmoji;
-        this.skipEmoji = skipEmoji;
+        this.queueEmoji = channel.client.emojis.resolveIdentifier(queueEmoji);
+        this.availableEmoji = channel.client.emojis.resolveIdentifier(availableEmoji);
+        this.acceptEmoji = channel.client.emojis.resolveIdentifier(acceptEmoji);
+        this.skipEmoji = channel.client.emojis.resolveIdentifier(skipEmoji);
 
         this.userToString = userToString;
         this.promptAcceptOrSkipMessage = promptAcceptOrSkipMessage;

@@ -17,7 +17,7 @@ export function compareEmoji(a: EmojiIdentifierResolvable, b: EmojiIdentifierRes
 
     if(typeof a === 'string') {
         if(b instanceof GuildEmoji || b instanceof ReactionEmoji) {
-            return a === b.name;
+            return a === b.identifier;
         }
 
         return a === b;
