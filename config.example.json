@@ -1,20 +1,26 @@
 {
     "token": "BOT.TOKEN.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-    "channelId": "CHANNELIDXXXXXXXXX",
-    "clearChannel": false,
-    "queues": [
-        {
-            "title": "Active",
-            "queueEmoji": "🎫",
-            "maxActive": 5,
-            "pendingTimeout": 600000
-        },
-        {
-            "title": "Users with partners",
-            "queueEmoji": "🎫",
-            "availableEmoji": "📋",
-            "requireAvailable": true,
-            "pendingTimeout": 600000
+    "channels": {
+        "CHANNELIDXXXXXXXXX": {
+            "clear": true,
+            "queues": [
+                {
+                    "title": "Active",
+        
+                    "maxActive": 5,
+                    "pendingTimeout": 600000
+                },
+                {
+                    "title": "Users with partners",
+        
+                    "maxPendingTimeouts": 1,
+                    "maxPendingSkips": 3,
+                    "queueEmoji": "🎫",
+                    "availableEmoji": "📋",
+                    "requireAvailable": true,
+                    "pendingTimeout": 600000
+                }
+            ]
         }
-    ]
+    }
 }

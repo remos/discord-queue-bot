@@ -1,14 +1,20 @@
-import {User, EmojiIdentifierResolvable, MessageReaction, StringResolvable, Message, MessageOptions, MessageAdditions, APIMessage} from 'discord.js';
-import { compareEmoji } from './util';
-import { ComparisonQueue } from './ComparisonQueue';
-
-interface PromptCallback {
-    (user: User, emoji: EmojiIdentifierResolvable): void;
-}
+import {
+    User,
+    EmojiIdentifierResolvable,
+    StringResolvable,
+    Message,
+    APIMessage,
+    MessageEditOptions,
+    MessageEmbed,
+    DMChannel,
+    MessageReaction
+} from 'discord.js';
+import {ComparisonQueue} from './ComparisonQueue';
+import { ReactionMessage, ReactionCallback } from './ReactionMessage';
 
 export interface PromptOption {
     emoji: EmojiIdentifierResolvable;
-    callback?: PromptCallback;
+    collect: ReactionCallback<boolean | void>;
 }
 
 export class UserQueue extends ComparisonQueue<User> {
@@ -17,103 +23,116 @@ export class UserQueue extends ComparisonQueue<User> {
     }
 }
 
+export interface UserPromptPromptOptions {
+    timeoutCallback?: ReactionCallback<void>;
+}
+
 export class UserPrompt {
     user: User;
     message: Message;
-    timeout: number;
-    promptOptions: PromptOption[];
-    failure?: PromptCallback;
-
-    startTime?: number;
-
+    reactionMessage: ReactionMessage;
     cancelled: boolean;
-    removed: boolean;
 
-    constructor(user: User, timeout: number, promptOptions: PromptOption[], failure?: PromptCallback) {
+    constructor(user: User) {
         this.user = user;
-        this.timeout = timeout;
-        this.promptOptions = promptOptions;
-        this.failure = failure;
-
         this.cancelled = false;
-        this.removed = false;
     }
-    
-    async prompt(
-        options?:
-            | MessageOptions
-            | MessageAdditions
-            | APIMessage
-            | (MessageOptions & { split?: false })
-            | MessageAdditions
-            | APIMessage,
-    ): Promise<EmojiIdentifierResolvable>;
-    async prompt(
-        content?: StringResolvable,
-        options?: MessageOptions | MessageAdditions | (MessageOptions & { split?: false }) | MessageAdditions,
-    ): Promise<EmojiIdentifierResolvable>;
-    async prompt(...args: unknown[]): Promise<EmojiIdentifierResolvable> {
-        if(this.cancelled) {
-            return;
-        }
 
-        const dmChannel = this.user.dmChannel || await this.user.createDM();
+    private async getDMChannel(): Promise<DMChannel> {
+        return this.user.dmChannel || await this.user.createDM();
+    }
 
-        this.message = await dmChannel.send(...args);
+    private async clearDMChannel(exclude: Message[] = []): Promise<Message[]> {
+        const channel = await this.getDMChannel();
 
-        if(this.cancelled) {
-            return;
-        }
-
-        for(const promptOption of this.promptOptions) {
-            this.message.react(promptOption.emoji);
-        }
-
-        this.startTime = Date.now();
-        const reactions = await this.message.awaitReactions(
-            (reaction: MessageReaction, user: User)=>(
-                user != user.client.user &&
-                this.promptOptions.findIndex(
-                    promptOption=>compareEmoji(promptOption.emoji, reaction.emoji)
-                ) >= 0
-            ),
-            {max: 1, time: this.timeout}
+        // Bulk delete doesn't exist on DMChannel?
+        return Promise.all(
+            (await channel.messages.fetch())
+            .filter(({id})=>exclude.findIndex(({id: excludeId})=>id===excludeId) < 0)
+            .map(message=>message.delete().catch(()=>null))
         );
+    }
 
-        this.removeMessage();
-
+    // Proxy the arguments for discord.js' PartialTextBasedChannelFields.send
+    async prompt(
+        promptOptions: PromptOption[],
+        timeout: number,
+        additionalOptions: UserPromptPromptOptions,
+        options: MessageEditOptions | MessageEmbed | APIMessage,
+    ): Promise<EmojiIdentifierResolvable>;
+    async prompt(
+        promptOptions: PromptOption[],
+        timeout: number,
+        additionalOptions: UserPromptPromptOptions,
+        content: StringResolvable,
+        options?: MessageEditOptions | MessageEmbed,
+        onTimeout?: ReactionCallback<void>
+    ): Promise<EmojiIdentifierResolvable>;
+    async prompt(
+        promptOptions: PromptOption[],
+        timeout: number,
+        additionalOptions: UserPromptPromptOptions,
+        a: unknown,
+        b?: unknown
+    ): Promise<EmojiIdentifierResolvable> {
         if(this.cancelled) {
             return;
         }
 
-        const emoji: EmojiIdentifierResolvable = reactions.size ? reactions.first().emoji : null;
-        if(emoji) {
-            const promptOption = this.promptOptions.find(promptOption=>compareEmoji(promptOption.emoji, emoji));
-            if(promptOption.callback) {
-                promptOption.callback(this.user, emoji);
-            }
-        } else if(this.failure) {
-            this.failure(this.user, emoji);
+        if(this.reactionMessage) {
+            this.reactionMessage.stop();
         }
 
-        return emoji;
-    }
+        const dmChannel = await this.getDMChannel();
 
-    private removeMessage(): void {
-        if(this.removed) {
+        await this.clearDMChannel(this.message ? [this.message] : []);
+
+        if(this.message && this.message.editable) {
+            this.message = await this.message.edit(a, b);
+        } else {
+            this.removeMessage();
+            this.message = await dmChannel.send(a, b);
+        }
+
+        if(this.cancelled) {
+            this.removeMessage();
             return;
         }
 
-        this.removed = true;
+        promptOptions = promptOptions.map(promptOption=>({
+            emoji: promptOption.emoji,
+            collect: (reaction: MessageReaction, user: User): void=>{
+                this.removeMessage();
+                promptOption.collect(reaction, user);
+            }
+        }));
+
+        this.reactionMessage = new ReactionMessage(
+            this.message,
+            promptOptions,
+            {
+                timeout: timeout,
+                timeoutCallback: (): void => {
+                    this.removeMessage();
+                    if(additionalOptions.timeoutCallback) {
+                        additionalOptions.timeoutCallback(null, this.user);
+                    }
+                }
+            }
+        );
+    }
+
+    private async removeMessage(): Promise<void> {
+        if(!this.message) {
+            return;
+        }
 
         if(this.message) {
-            this.message.fetch().then(async message=>{
+            const message = this.message;
+            delete this.message;
+            return message.fetch().then(async message=>{
                 if(message) {
-                    try {
-                        await message.delete();
-                    } catch(ignored) {
-                        // Ignore failure to delete the message
-                    }
+                    await message.delete().catch(()=>null);
                 }
             });
         }
@@ -122,12 +141,13 @@ export class UserPrompt {
     /**
      * @returns the time remaining on the prompt
      */
-    cancel(): number {
+    cancel(): void {
         if(!this.cancelled) {
             this.cancelled = true;
+            if(this.reactionMessage) {
+                this.reactionMessage.stop();
+            }
             this.removeMessage();
         }
-
-        return Date.now() - this.startTime;
     }
 }
