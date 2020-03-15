@@ -1,5 +1,6 @@
 {
   "name": "discord-queue-bot",
+  "description": "Simple queueing using reactions for discord",
   "version": "1.0.0",
   "main": "dist/index.js",
   "bin": "dist/cli.js",
@@ -18,15 +19,15 @@
     "node": ">= 12"
   },
   "scripts": {
+    "prepublish": "tsc && chmod +x dist/cli.js",
     "build": "tsc && chmod +x dist/cli.js",
     "prestart": "tsc && chmod +x dist/cli.js",
-    "start": "dist/cli.js",
+    "start": "node dist/cli.js",
     "test": "jest",
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "discord.js": "^12.0.1",
-    "emoji-dictionary": "^1.0.10"
+    "discord.js": "^12.0.1"
   },
   "devDependencies": {
     "@types/jest": "^25.1.4",

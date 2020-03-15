@@ -1,6 +1,4 @@
 import { TextChannel, MessageEmbed, MessageEmbedOptions, DMChannel, EmojiIdentifierResolvable, User, Message, MessageResolvable } from 'discord.js';
-
-import {getUnicode} from 'emoji-dictionary';
 import {ReactionMessage, ReactionOption} from './ReactionMessage';
 
 import {UserPrompt} from './UserPrompt';
@@ -115,10 +113,10 @@ export class ReactionQueue {
             pendingTimeout=600000,
             maxPendingTimeouts=1,
             maxPendingSkips = 3,
-            queueEmoji=getUnicode('stopwatch'),
-            availableEmoji=getUnicode('ticket'),
-            acceptEmoji=getUnicode('heavy_check_mark'),
-            skipEmoji=getUnicode('heavy_multiplication_x'),
+            queueEmoji='🎫',
+            availableEmoji='📋',
+            acceptEmoji='✔️',
+            skipEmoji='✖️',
             userToString=defaultUserToString,
             promptAcceptOrSkipMessage='Accept newly active slot or return to the front of the queue?',
             promptAcceptMessage='Accept newly active slot?',
