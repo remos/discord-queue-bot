@@ -50,9 +50,11 @@ describe('ComparisonMap', ()=>{
         );
 
         map.add({id: 1}, 'b');
+        map.add({id: 2}, 'c');
 
         expect(map.getEntries()).toEqual([
-            {key: {id: 1}, value: 'b'}
+            {key: {id: 1}, value: 'b'},
+            {key: {id: 2}, value: 'c'}
         ]);
     });
 

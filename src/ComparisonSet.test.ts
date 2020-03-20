@@ -38,13 +38,14 @@ describe('ComparisonSet', ()=>{
     it("removes items", ()=>{
         const set = new ComparisonSet(
             ({id: a}, {id: b})=>a==b,
-            [{id: 1}, {id: 2}, {id: 1}]
+            [{id: 1}, {id: 2}, {id: 1}, {id: 3}]
         );
 
-        expect(set.remove({id: 2})).toEqual({id: 2});
+        expect(set.remove({id: 1})).toEqual({id: 1});
+        expect(set.remove({id: 3})).toEqual({id: 3});
 
         expect(set.get()).toEqual([
-            {id: 1}
+            {id: 2}
         ]);
     });
 
