@@ -23,7 +23,7 @@
     "build": "tsc && chmod +x dist/cli.js",
     "prestart": "tsc && chmod +x dist/cli.js",
     "start": "node dist/cli.js",
-    "test": "jest && stryker",
+    "test": "jest && stryker run",
     "jest": "jest",
     "stryker": "stryker run"
   },
