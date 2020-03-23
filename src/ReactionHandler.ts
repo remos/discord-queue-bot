@@ -46,7 +46,7 @@ function ignore404Errors(e: unknown): void {
     throw e;
 }
 
-export class ReactionMessage {
+export class ReactionHandler {
     message: Message;
     timeout: number;
     optionMap: EmojiMap<ReactionOption>;

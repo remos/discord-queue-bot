@@ -1,4 +1,4 @@
 export {ReactionQueue, ReactionQueueOptions} from './ReactionQueue';
-export {ReactionMessage, ReactionOption} from './ReactionMessage';
+export {ReactionHandler, ReactionOption} from './ReactionHandler';
 export {UserPrompt} from './UserPrompt';
 export {fromConfig} from './initialise';

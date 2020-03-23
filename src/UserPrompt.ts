@@ -12,7 +12,7 @@ import {
     DiscordAPIError
 } from 'discord.js';
 import {ComparisonQueue} from './ComparisonQueue';
-import { ReactionMessage, ReactionCallback } from './ReactionMessage';
+import { ReactionHandler, ReactionCallback } from './ReactionHandler';
 
 export interface PromptOption {
     emoji: EmojiIdentifierResolvable;
@@ -32,7 +32,7 @@ export interface UserPromptPromptOptions {
 export class UserPrompt {
     user: User;
     message: Message;
-    reactionMessage: ReactionMessage;
+    reactionHandler: ReactionHandler;
     cancelled: boolean;
     fallbackChannel: TextChannel | DMChannel;
 
@@ -83,8 +83,8 @@ export class UserPrompt {
             return;
         }
 
-        if(this.reactionMessage) {
-            this.reactionMessage.stop();
+        if(this.reactionHandler) {
+            this.reactionHandler.stop();
         }
 
         const dmChannel = await this.getDMChannel();
@@ -123,7 +123,7 @@ export class UserPrompt {
             }
         }));
 
-        this.reactionMessage = new ReactionMessage(
+        this.reactionHandler = new ReactionHandler(
             this.message,
             promptOptions,
             {
@@ -143,22 +143,20 @@ export class UserPrompt {
             return;
         }
 
-        if(this.message) {
-            const message = this.message;
-            delete this.message;
-            return message.fetch().then(async message=>{
-                if(message) {
-                    await message.delete().catch(()=>null);
-                }
-            });
-        }
+        const message = this.message;
+        delete this.message;
+        return message.fetch().then(async message=>{
+            if(message) {
+                await message.delete().catch(()=>null);
+            }
+        });
     }
 
     cancel(): void {
         if(!this.cancelled) {
             this.cancelled = true;
-            if(this.reactionMessage) {
-                this.reactionMessage.stop();
+            if(this.reactionHandler) {
+                this.reactionHandler.stop();
             }
             this.removeMessage();
         }

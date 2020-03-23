@@ -9,7 +9,7 @@ import {
     MessageResolvable,
     MessageReaction
 } from 'discord.js';
-import {ReactionMessage, ReactionOption} from './ReactionMessage';
+import {ReactionHandler, ReactionOption} from './ReactionHandler';
 
 import {UserPrompt} from './UserPrompt';
 import { ComparisonMap } from './ComparisonMap';
@@ -81,7 +81,7 @@ export class ReactionQueue {
     private channel: TextChannel | DMChannel;
     title: string;
     message: Message;
-    reactionMessage: ReactionMessage;
+    reactionHandler: ReactionHandler;
 
     requireAvailable: boolean;
     maxActive?: number;
@@ -279,7 +279,7 @@ export class ReactionQueue {
         }
     }
 
-    private initReactionMessage(): ReactionMessage {
+    private createReactionHandler(): ReactionHandler {
         const options: ReactionOption[] = [
             {
                 emoji: this.queueEmoji,
@@ -300,7 +300,7 @@ export class ReactionQueue {
             });
         }
 
-        return this.reactionMessage = new ReactionMessage(
+        return this.reactionHandler = new ReactionHandler(
             this.message,
             options,
             {
@@ -349,7 +349,7 @@ export class ReactionQueue {
     }
 
     private getMessage(): MessageEmbed {
-        const options: MessageEmbedOptions = {
+        const messageOptions: MessageEmbedOptions = {
             title: this.title,
             fields: [],
             timestamp: new Date(),
@@ -357,15 +357,15 @@ export class ReactionQueue {
         };
 
         if(this.requireAvailable) {
-            options.fields.push({name: `Open`, value: this.getQueueFieldMessage('available').join('\n'), inline: true});
+            messageOptions.fields.push({name: `Open`, value: this.getQueueFieldMessage('available').join('\n'), inline: true});
         }
 
         const active = this.getQueueFieldMessage(['active', 'pending'], this.getMaxActive());
 
-        options.fields.push({name: `Active ${this.active.length}${this.pending.length ? `+${this.pending.length}` : ''}/${this.getMaxActive()}`, value: active.join("\n"), inline: true});
-        options.fields.push({name: `Queued`, value: this.getQueueFieldMessage('queue').join('\n'), inline: true});
+        messageOptions.fields.push({name: `Active ${this.active.length}${this.pending.length ? `+${this.pending.length}` : ''}/${this.getMaxActive()}`, value: active.join("\n"), inline: true});
+        messageOptions.fields.push({name: `Queued`, value: this.getQueueFieldMessage('queue').join('\n'), inline: true});
 
-        return new MessageEmbed(options);
+        return new MessageEmbed(messageOptions);
     }
 
     async setMaxActive(maxActive: number): Promise<void> {
