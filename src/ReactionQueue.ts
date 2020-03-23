@@ -28,6 +28,7 @@ export interface GetMessageFunction<T> {
 
 export interface AcceptGetMessageFunctionContext {
     user: User;
+    userToString: ReactionQueueOptions['userToString'];
     counts: {
         skip: number;
         timeout: number;
@@ -36,6 +37,7 @@ export interface AcceptGetMessageFunctionContext {
 
 export interface AcceptOrSkipGetMessageFunctionContext {
     user: User;
+    userToString: ReactionQueueOptions['userToString'];
     expires: Date;
     counts: {
         skip: number;
@@ -78,32 +80,32 @@ export interface ReactionQueueOptions {
     messageDebounceTimeout?: number;
 
     /** Style/transform a user's name to display in the queue */
-    userToString?: (user: User, queueType: QueueType) => string;
+    userToString?: (user: User, queueType?: QueueType) => string;
 }
 
-function defaultUserToString(user: User, queueType: QueueType): string {
+const defaultUserToString: ReactionQueueOptions['userToString'] = (user: User, queueType?: QueueType): string => {
     const str = user.toString();
 
     return queueType === 'pending' ? `_${str}_` : str;
-}
+};
 
-function defaultPromptAcceptOrSkip({user, expires}): MessageEmbed {
+const defaultPromptAcceptOrSkip: GetMessageFunction<AcceptOrSkipGetMessageFunctionContext> = ({user, userToString, expires}): MessageEmbed => {
     const messageOptions: MessageEmbedOptions = {
-        description: `${user.toString()} - Accept newly active slot or return to the front of the queue?`,
+        description: `${userToString(user)} - Accept newly active slot or return to the front of the queue?`,
         timestamp: expires,
         footer: {text: 'Expires'}
     };
 
     return new MessageEmbed(messageOptions);
-}
+};
 
-function defaultPromptAccept({user}): MessageEmbed {
+const defaultPromptAccept: GetMessageFunction<AcceptGetMessageFunctionContext> = ({user, userToString}): MessageEmbed => {
     const messageOptions: MessageEmbedOptions = {
-        description: `${user.toString()} - Accept newly active slot?`
+        description: `${userToString(user)} - Accept newly active slot?`
     };
 
     return new MessageEmbed(messageOptions);
-}
+};
 
 type UserQueue = ComparisonQueue<User>;
 const USER_COMPARATOR: Comparator<User> = (a: User, b: User): boolean => a.id === b.id;
@@ -283,6 +285,7 @@ export class ReactionQueue extends EventEmitter<{
 
         const context: AcceptGetMessageFunctionContext = {
             user: user,
+            userToString: this.userToString,
             counts: this.promptTimeoutCountMap.get(user)
         };
 
