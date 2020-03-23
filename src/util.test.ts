@@ -12,8 +12,8 @@ const identifier = (identifier: string): IdentifiedFunction => {
     return f;
 };
 
-describe('compareEmoji', ()=>{
-    it('Evaluates empty strings/falsy objects', ()=>{
+describe('compareEmoji', () => {
+    it('Evaluates empty strings/falsy objects', () => {
         expect(compareEmoji(null, undefined)).toStrictEqual(false);
         expect(compareEmoji(undefined, undefined)).toStrictEqual(false);
         expect(compareEmoji('', '')).toStrictEqual(true);
@@ -24,7 +24,7 @@ describe('compareEmoji', ()=>{
         expect(compareEmoji('', Emoji(''))).toStrictEqual(true);
     });
 
-    it('Evaluates emoji strings and class types', ()=>{
+    it('Evaluates emoji strings and class types', () => {
         expect(compareEmoji('a', 'a')).toStrictEqual(true);
         expect(compareEmoji(Emoji('a'), 'a')).toStrictEqual(true);
         expect(compareEmoji('b', Emoji('b'))).toStrictEqual(true);
@@ -36,7 +36,7 @@ describe('compareEmoji', ()=>{
         expect(compareEmoji(Emoji('a'), Emoji('b'))).toStrictEqual(false);
     });
 
-    it('Evaluates odd types', ()=>{
+    it('Evaluates odd types', () => {
         /* eslint-disable @typescript-eslint/ban-ts-ignore */
 
         // @ts-ignore
@@ -46,7 +46,7 @@ describe('compareEmoji', ()=>{
         expect(compareEmoji(identifier('a'), identifier('a'))).toStrictEqual(false);
         expect(compareEmoji(Emoji('a'), identifier('a'))).toStrictEqual(false);
 
-        const a = (): void=>null;
+        const a = (): void => null;
         a['identifier'] = 'asd';
         // @ts-ignore
         expect(compareEmoji({value: 'a'}, {value: 'b'})).toStrictEqual(false);

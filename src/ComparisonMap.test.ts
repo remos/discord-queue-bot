@@ -1,17 +1,17 @@
 import {ComparisonMap} from './ComparisonMap';
 
-describe('ComparisonMap', ()=>{
-    it("initialises empty", ()=>{
+describe('ComparisonMap', () => {
+    it("initialises empty", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b
+            ({id: a}, {id: b}) => a==b
         );
 
         expect(map.getEntries()).toEqual([]);
     });
 
-    it("should overwrite duplicates when initialising", ()=>{
+    it("should overwrite duplicates when initialising", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'},
                 {key: {id: 2}, value: 'b'},
@@ -25,9 +25,9 @@ describe('ComparisonMap', ()=>{
         ]);
     });
 
-    it("should allow adding entries", ()=>{
+    it("should allow adding entries", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'}
             ]
@@ -41,9 +41,9 @@ describe('ComparisonMap', ()=>{
         ]);
     });
 
-    it("should overwrite entries with the same key when adding", ()=>{
+    it("should overwrite entries with the same key when adding", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'}
             ]
@@ -58,9 +58,9 @@ describe('ComparisonMap', ()=>{
         ]);
     });
 
-    it("should not remove missing entries", ()=>{
+    it("should not remove missing entries", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'},
                 {key: {id: 2}, value: 'b'}
@@ -75,9 +75,9 @@ describe('ComparisonMap', ()=>{
         ]);
     });
 
-    it("should remove entries", ()=>{
+    it("should remove entries", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'},
                 {key: {id: 2}, value: 'b'}
@@ -91,9 +91,9 @@ describe('ComparisonMap', ()=>{
         ]);
     });
 
-    it("should support get", ()=>{
+    it("should support get", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'},
                 {key: {id: 2}, value: 'b'}
@@ -104,9 +104,9 @@ describe('ComparisonMap', ()=>{
         expect(map.get({id: 3})).toEqual(undefined);
     });
 
-    it("should support get with a default value", ()=>{
+    it("should support get with a default value", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'},
                 {key: {id: 2}, value: 'b'}
@@ -116,9 +116,9 @@ describe('ComparisonMap', ()=>{
         expect(map.get({id: 3}, 'c')).toEqual('c');
     });
 
-    it("should support has", ()=>{
+    it("should support has", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'},
                 {key: {id: 2}, value: 'b'}
@@ -130,9 +130,9 @@ describe('ComparisonMap', ()=>{
         expect(map.has({id: 3})).toEqual(false);
     });
 
-    it("should support getKeys", ()=>{
+    it("should support getKeys", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'},
                 {key: {id: 2}, value: 'b'}
@@ -144,9 +144,9 @@ describe('ComparisonMap', ()=>{
         ]);
     });
 
-    it("should support getValues", ()=>{
+    it("should support getValues", () => {
         const map = new ComparisonMap(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [
                 {key: {id: 1}, value: 'a'},
                 {key: {id: 2}, value: 'b'}

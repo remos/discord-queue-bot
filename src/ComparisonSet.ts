@@ -14,7 +14,7 @@ export class ComparisonSet<T> {
     }
 
     private indexOf(value: T): number {
-        return this.list.findIndex(testValue=>this.comparator(value, testValue));
+        return this.list.findIndex(testValue => this.comparator(value, testValue));
     }
 
     add(value: T): void {

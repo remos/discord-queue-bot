@@ -5,25 +5,25 @@ import {mockDeep, mockReset} from 'jest-mock-extended';
 jest.mock('discord.js');
 jest.mock('./ComparisonMap');
 
-describe('EmojiMap', ()=>{
+describe('EmojiMap', () => {
     const client = mockDeep<Client>();
 
-    beforeEach(()=>{
+    beforeEach(() => {
         mockReset(client);
     });
 
-    describe('constructor', ()=>{
-        it("initialises empty with no options", ()=>{
+    describe('constructor', () => {
+        it("initialises empty with no options", () => {
             const map = new EmojiMap(client);
             expect(map.map.add).toHaveBeenCalledTimes(0);
         });
 
-        it("initialises empty", ()=>{
+        it("initialises empty", () => {
             const map = new EmojiMap(client, []);
             expect(map.map.add).toHaveBeenCalledTimes(0);
         });
     
-        it("initialises with values", ()=>{
+        it("initialises with values", () => {
             client.emojis.resolveIdentifier
                 .mockReturnValueOnce('1')
                 .mockReturnValueOnce('2')
@@ -45,8 +45,8 @@ describe('EmojiMap', ()=>{
         });
     });
     
-    describe('add', ()=>{
-        it("should resolve identifier during add", ()=>{
+    describe('add', () => {
+        it("should resolve identifier during add", () => {
             const map = new EmojiMap(client);
 
             client.emojis.resolveIdentifier.mockReturnValueOnce('1');
@@ -65,8 +65,8 @@ describe('EmojiMap', ()=>{
         });
     });
     
-    describe('remove', ()=>{
-        it("should resolve identifier during remove", ()=>{
+    describe('remove', () => {
+        it("should resolve identifier during remove", () => {
             const map = new EmojiMap(client);
     
             client.emojis.resolveIdentifier.mockReturnValueOnce('1');
@@ -75,8 +75,8 @@ describe('EmojiMap', ()=>{
         });
     });
 
-    describe('get', ()=>{
-        it("should resolve identifier during get", ()=>{
+    describe('get', () => {
+        it("should resolve identifier during get", () => {
             const map = new EmojiMap(client);
 
             client.emojis.resolveIdentifier.mockReturnValueOnce('1');
@@ -85,8 +85,8 @@ describe('EmojiMap', ()=>{
         });
     });
 
-    describe('has', ()=>{
-        it("should resolve identifier during has", ()=>{
+    describe('has', () => {
+        it("should resolve identifier during has", () => {
             const map = new EmojiMap(client);
 
             client.emojis.resolveIdentifier.mockReturnValueOnce('1');
@@ -95,8 +95,8 @@ describe('EmojiMap', ()=>{
         });
     });
 
-    describe('getValues', ()=>{
-        it("should resolve identifier during getValues", ()=>{
+    describe('getValues', () => {
+        it("should resolve identifier during getValues", () => {
             const map = new EmojiMap(client);
 
             const value = {};

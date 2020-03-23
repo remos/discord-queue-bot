@@ -35,14 +35,14 @@ async function initialise({
     token,
     channels
 }: Config): Promise<ReactionQueue[]> {
-    return new Promise((resolve, reject)=>{
+    return new Promise((resolve, reject) => {
         const client = new Client();
 
-        client.on('ready', async ()=>{
+        client.on('ready', async () => {
             console.info(`Logged in as ${client.user.tag}`);
 
             Promise.all(
-                Object.keys(channels).map(async channelId=>{
+                Object.keys(channels).map(async channelId => {
                     const channel = await client.channels.fetch(channelId);
                     if(channel.type !== 'text') {
                         throw `Joined non-text channel ${channelId}`;
@@ -54,7 +54,7 @@ async function initialise({
                         await clearChannel(channel as TextChannel);
                     }
 
-                    return channels[channelId].queues.map(queueConfiguration=>{
+                    return channels[channelId].queues.map(queueConfiguration => {
                         console.info(`Creating queue titled ${queueConfiguration.title}`);
                 
                         return new ReactionQueue(
@@ -64,12 +64,12 @@ async function initialise({
                         );
                     });
                 })
-            ).then(queueArrays=>queueArrays.flat())
+            ).then(queueArrays => queueArrays.flat())
             .then(resolve)
             .catch(reject);
         });
 
-        client.on('error', (e)=>{
+        client.on('error', (e) => {
             console.error(e);
         });
 
