@@ -26,7 +26,7 @@ export interface Config {
     };
 }
 
-async function clearChannel(channel: TextChannel): Promise<Collection<Snowflake, Message>> {
+export async function clearChannel(channel: TextChannel): Promise<Collection<Snowflake, Message>> {
     console.info(`Clearing ${channel.name}`);
     return channel.bulkDelete(await channel.messages.fetch());
 }

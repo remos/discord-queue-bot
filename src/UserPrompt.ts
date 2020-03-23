@@ -13,6 +13,7 @@ import {
 } from 'discord.js';
 import {ComparisonQueue} from './ComparisonQueue';
 import { ReactionHandler, ReactionCallback } from './ReactionHandler';
+import debounce = require('debounce-promise');
 
 export interface PromptOption {
     emoji: EmojiIdentifierResolvable;
@@ -21,7 +22,7 @@ export interface PromptOption {
 
 export class UserQueue extends ComparisonQueue<User> {
     constructor(initial?: User[]) {
-        super((a: User, b: User)=>a.id === b.id, initial);
+        super((a: User, b: User) => a.id === b.id, initial);
     }
 }
 
@@ -40,6 +41,8 @@ export class UserPrompt {
         this.user = user;
         this.fallbackChannel = fallbackChannel;
         this.cancelled = false;
+
+        this.prompt = debounce(this.prompt, 400);
     }
 
     private async getDMChannel(): Promise<DMChannel> {
@@ -52,9 +55,9 @@ export class UserPrompt {
         // Bulk delete doesn't exist on DMChannel?
         return Promise.all(
             (await channel.messages.fetch())
-            .filter(({id})=>exclude.findIndex(({id: excludeId})=>id===excludeId) < 0)
-            .map(message=>message.delete().catch(()=>null))
-        ).catch(()=>[]);
+            .filter(({id}) => exclude.findIndex(({id: excludeId}) => id===excludeId) < 0)
+            .map(message => message.delete().catch(() => null))
+        ).catch(() => null);
     }
 
     // Proxy the arguments for discord.js' PartialTextBasedChannelFields.send
@@ -93,7 +96,11 @@ export class UserPrompt {
         if(this.message && this.message.editable) {
             this.message = await this.message.edit(a, b);
         } else {
-            this.removeMessage();
+            await this.removeMessage();
+            if(this.cancelled) {
+                await this.removeMessage();
+                return;
+            }
 
             try {
                 this.message = await dmChannel.send(a, b);
@@ -106,14 +113,15 @@ export class UserPrompt {
             }
         }
 
+        // If the prompt has aborted while sending/editing message
         if(this.cancelled) {
-            this.removeMessage();
+            await this.removeMessage();
             return;
         }
 
-        promptOptions = promptOptions.map(promptOption=>({
+        promptOptions = promptOptions.map(promptOption => ({
             emoji: promptOption.emoji,
-            collect: (reaction: MessageReaction, user: User): boolean=>{
+            collect: (reaction: MessageReaction, user: User): boolean => {
                 if(user.id !== this.user.id) {
                     return false;
                 }
@@ -139,26 +147,28 @@ export class UserPrompt {
     }
 
     private async removeMessage(): Promise<void> {
+        if(this.reactionHandler) {
+            this.reactionHandler.stop();
+        }
+
         if(!this.message) {
             return;
         }
 
         const message = this.message;
         delete this.message;
-        return message.fetch().then(async message=>{
-            if(message) {
-                await message.delete().catch(()=>null);
-            }
-        });
+        await message.delete();
     }
 
     cancel(): void {
-        if(!this.cancelled) {
-            this.cancelled = true;
-            if(this.reactionHandler) {
-                this.reactionHandler.stop();
-            }
-            this.removeMessage();
+        if(this.cancelled) {
+            return;
         }
+
+        this.cancelled = true;
+        if(this.reactionHandler) {
+            this.reactionHandler.stop();
+        }
+        this.removeMessage();
     }
 }
