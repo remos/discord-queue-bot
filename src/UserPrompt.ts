@@ -7,7 +7,9 @@ import {
     MessageEditOptions,
     MessageEmbed,
     DMChannel,
-    MessageReaction
+    MessageReaction,
+    TextChannel,
+    DiscordAPIError
 } from 'discord.js';
 import {ComparisonQueue} from './ComparisonQueue';
 import { ReactionMessage, ReactionCallback } from './ReactionMessage';
@@ -32,9 +34,11 @@ export class UserPrompt {
     message: Message;
     reactionMessage: ReactionMessage;
     cancelled: boolean;
+    fallbackChannel: TextChannel | DMChannel;
 
-    constructor(user: User) {
+    constructor(user: User, fallbackChannel?: TextChannel | DMChannel) {
         this.user = user;
+        this.fallbackChannel = fallbackChannel;
         this.cancelled = false;
     }
 
@@ -50,7 +54,7 @@ export class UserPrompt {
             (await channel.messages.fetch())
             .filter(({id})=>exclude.findIndex(({id: excludeId})=>id===excludeId) < 0)
             .map(message=>message.delete().catch(()=>null))
-        );
+        ).catch(()=>[]);
     }
 
     // Proxy the arguments for discord.js' PartialTextBasedChannelFields.send
@@ -84,14 +88,22 @@ export class UserPrompt {
         }
 
         const dmChannel = await this.getDMChannel();
-
         await this.clearDMChannel(this.message ? [this.message] : []);
 
         if(this.message && this.message.editable) {
             this.message = await this.message.edit(a, b);
         } else {
             this.removeMessage();
-            this.message = await dmChannel.send(a, b);
+
+            try {
+                this.message = await dmChannel.send(a, b);
+            } catch(e) {
+                if(e instanceof DiscordAPIError && e.code === 50007 && this.fallbackChannel) {
+                    this.message = await this.fallbackChannel.send(a, b);
+                } else {
+                    throw e;
+                }
+            }
         }
 
         if(this.cancelled) {
@@ -101,7 +113,11 @@ export class UserPrompt {
 
         promptOptions = promptOptions.map(promptOption=>({
             emoji: promptOption.emoji,
-            collect: (reaction: MessageReaction, user: User): void=>{
+            collect: (reaction: MessageReaction, user: User): boolean=>{
+                if(user.id !== this.user.id) {
+                    return false;
+                }
+
                 this.removeMessage();
                 promptOption.collect(reaction, user);
             }
@@ -138,9 +154,6 @@ export class UserPrompt {
         }
     }
 
-    /**
-     * @returns the time remaining on the prompt
-     */
     cancel(): void {
         if(!this.cancelled) {
             this.cancelled = true;

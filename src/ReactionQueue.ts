@@ -27,7 +27,7 @@ export interface GetMessageFunction {
             skip: number;
             timeout: number;
         };
-    }): string;
+    }): string | MessageEmbed;
 }
 
 export interface ReactionQueueOptions {
@@ -134,8 +134,8 @@ export class ReactionQueue {
             acceptEmoji='✔️',
             skipEmoji='✖️',
             userToString=defaultUserToString,
-            promptAcceptOrSkipMessage='Accept newly active slot or return to the front of the queue?',
-            promptAcceptMessage='Accept newly active slot?',
+            promptAcceptOrSkipMessage=({user}): string => `${user.toString()} - Accept newly active slot or return to the front of the queue?`,
+            promptAcceptMessage=({user}): string => `${user.toString()} - Accept newly active slot?`,
             additionalOptions=[],
             messageDebounceTimeout=300,
         }: ReactionQueueOptions = {}
@@ -232,7 +232,7 @@ export class ReactionQueue {
             });
         }
 
-        const prompt = this.promptMap.has(user) ? this.promptMap.get(user).prompt : new UserPrompt(user);
+        const prompt = this.promptMap.has(user) ? this.promptMap.get(user).prompt : new UserPrompt(user, this.channel);
 
         this.promptMap.add(user, {
             prompt: prompt,
@@ -249,7 +249,7 @@ export class ReactionQueue {
         );
     }
 
-    private templateToMessage(user: User, template: string | GetMessageFunction): string {
+    private templateToMessage(user: User, template: string | GetMessageFunction): string | MessageEmbed {
         if(typeof template === 'string') {
             return template;
         }

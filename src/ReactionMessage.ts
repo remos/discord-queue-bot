@@ -39,9 +39,11 @@ interface ReactionMessageOptions {
 }
 
 function ignore404Errors(e: unknown): void {
-    if(!(e instanceof DiscordAPIError) || e.code === 404) {
-        throw e;
+    if(e instanceof DiscordAPIError && e.code === 404) {
+        return;
     }
+
+    throw e;
 }
 
 export class ReactionMessage {
@@ -70,7 +72,7 @@ export class ReactionMessage {
     }
 
     private callbackProxy = (callbackMethodName: CallbackMethodName) => (reaction: MessageReaction, user: User): void => {
-        if(user !== user.client.user) {
+        if(!user || user.id !== user.client.user.id) {
             const callback = this.getCallback(reaction);
             if(callback) {
                 if(callback[callbackMethodName]) {
@@ -86,8 +88,8 @@ export class ReactionMessage {
     };
 
     private createReactionCollector = (): void => {
-        this.collector = this.message.createReactionCollector((_, user)=>{
-            return user != user.client.user;
+        this.collector = this.message.createReactionCollector((reaction, user)=>{
+            return user.id != user.client.user.id;
         }, {
             dispose: true,
             time: this.timeout
