@@ -12,8 +12,6 @@ import {ReactionQueue, ReactionQueueOptions} from './ReactionQueue';
 
 type QueueConfiguration = (ReactionQueueOptions & {
     title: string;
-    channelId: Snowflake;
-    clearChannel?: boolean;
 });
 
 type ChannelConfiguration = {
