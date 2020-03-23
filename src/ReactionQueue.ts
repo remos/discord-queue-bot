@@ -158,8 +158,6 @@ export class ReactionQueue extends EventEmitter<{
 
     userToString: ReactionQueueOptions['userToString'];
 
-    private debouncedUpdate: () => Promise<void>;
-
     constructor(
         channel: TextChannel | DMChannel,
         title: string,
@@ -207,7 +205,8 @@ export class ReactionQueue extends EventEmitter<{
 
         this.additionalOptions = additionalOptions;
 
-        this.debouncedUpdate = debounce(this.updateMessage, messageDebounceTimeout);
+        const updateMessage = this.updateMessage;
+        this.updateMessage = debounce(this.updateMessage, messageDebounceTimeout);
 
         this.active = new ComparisonQueue(USER_COMPARATOR);
         this.pending = new ComparisonQueue(USER_COMPARATOR);
@@ -225,7 +224,7 @@ export class ReactionQueue extends EventEmitter<{
             ).then(message => {
                 this.message = message;
                 this.createReactionHandler();
-                this.updateMessage();
+                updateMessage();
             });
         } else {
             this.channel.send(this.getMessage()).then(message => {
@@ -235,7 +234,7 @@ export class ReactionQueue extends EventEmitter<{
         }
     }
 
-    private updateMessage: () => Promise<void> = async () => {
+    updateMessage: () => Promise<void> = async () => {
         const message = this.getMessage();
         await this.message.edit(message);
 
@@ -260,7 +259,7 @@ export class ReactionQueue extends EventEmitter<{
         }
 
         this.checkQueueAndPromote();
-        this.debouncedUpdate();
+        this.updateMessage();
     };
 
     private sendPendingPrompt(user: User): void {
@@ -419,7 +418,7 @@ export class ReactionQueue extends EventEmitter<{
 
     async setMaxActive(maxActive: number): Promise<void> {
         this.maxActive = maxActive;
-        await this.debouncedUpdate();
+        await this.updateMessage();
     }
 
     getMaxActive(): number {
@@ -454,7 +453,7 @@ export class ReactionQueue extends EventEmitter<{
 
         const index = this.queue.push(user);
 
-        this.debouncedUpdate();
+        this.updateMessage();
 
         this.emit('userActive', user, index);
     };
@@ -467,7 +466,7 @@ export class ReactionQueue extends EventEmitter<{
 
         const index = this.active.push(user);
 
-        this.debouncedUpdate();
+        this.updateMessage();
 
         this.emit('userQueued', user, index);
     };
@@ -479,7 +478,7 @@ export class ReactionQueue extends EventEmitter<{
         const index = this.pending.push(user);
 
         this.sendPendingPrompt(user);
-        this.debouncedUpdate();
+        this.updateMessage();
 
         this.emit('userPending', user, index);
     };
@@ -508,7 +507,7 @@ export class ReactionQueue extends EventEmitter<{
         }
 
         this.checkQueueAndPromote();
-        this.debouncedUpdate();
+        this.updateMessage();
 
         this.emit('userAdd', user);
 
@@ -531,7 +530,7 @@ export class ReactionQueue extends EventEmitter<{
 
         this.checkAndUpdatePrompts();
         this.checkQueueAndPromote();
-        this.debouncedUpdate();
+        this.updateMessage();
 
         this.emit('userRemove', user, queueName);
     };
@@ -540,14 +539,14 @@ export class ReactionQueue extends EventEmitter<{
         this.available.push(user);
     
         this.checkQueueAndPromote();
-        this.debouncedUpdate();
+        this.updateMessage();
 
         return true;
     };
 
     removeAvailableUser = (user: User): void => {
         this.available.remove(user);
-        this.debouncedUpdate();
+        this.updateMessage();
 
         this.emit('userRemove', user, 'available');
     };
