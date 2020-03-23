@@ -6,5 +6,5 @@ before_install:
   - yarn global add codecov
 
 script:
-  - yarn test
+  - yarn test:ci
   - codecov

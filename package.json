@@ -24,6 +24,7 @@
     "prestart": "tsc && chmod +x dist/cli.js",
     "start": "node dist/cli.js",
     "test": "jest && stryker run",
+    "test:ci": "jest && stryker run --reporters clear-text,dashboard",
     "jest": "jest",
     "stryker": "stryker run"
   },
