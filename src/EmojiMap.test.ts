@@ -46,7 +46,7 @@ describe('EmojiMap', ()=>{
     });
     
     describe('add', ()=>{
-        it("should resolve identifier", ()=>{
+        it("should resolve identifier during add", ()=>{
             const map = new EmojiMap(client);
 
             client.emojis.resolveIdentifier.mockReturnValueOnce('1');
@@ -66,7 +66,7 @@ describe('EmojiMap', ()=>{
     });
     
     describe('remove', ()=>{
-        it("should resolve identifier", ()=>{
+        it("should resolve identifier during remove", ()=>{
             const map = new EmojiMap(client);
     
             client.emojis.resolveIdentifier.mockReturnValueOnce('1');
@@ -76,7 +76,7 @@ describe('EmojiMap', ()=>{
     });
 
     describe('get', ()=>{
-        it("should resolve identifier", ()=>{
+        it("should resolve identifier during get", ()=>{
             const map = new EmojiMap(client);
 
             client.emojis.resolveIdentifier.mockReturnValueOnce('1');
@@ -86,7 +86,7 @@ describe('EmojiMap', ()=>{
     });
 
     describe('has', ()=>{
-        it("should resolve identifier", ()=>{
+        it("should resolve identifier during has", ()=>{
             const map = new EmojiMap(client);
 
             client.emojis.resolveIdentifier.mockReturnValueOnce('1');
@@ -96,7 +96,7 @@ describe('EmojiMap', ()=>{
     });
 
     describe('getValues', ()=>{
-        it("should resolve identifier", ()=>{
+        it("should resolve identifier during getValues", ()=>{
             const map = new EmojiMap(client);
 
             const value = {};
