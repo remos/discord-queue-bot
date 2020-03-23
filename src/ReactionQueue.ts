@@ -16,14 +16,16 @@ import { ComparisonMap } from './ComparisonMap';
 import { ComparisonQueue } from './ComparisonQueue';
 import { Comparator } from './util';
 
+import debounce = require('debounce-promise');
+
 type QueueType = 'available' | 'active' | 'pending' | 'queue';
 
 export interface GetMessageFunction {
     (context: {
         user: User;
         counts: {
-            skips: number;
-            timeouts: number;
+            skip: number;
+            timeout: number;
         };
     }): string;
 }
@@ -60,6 +62,8 @@ export interface ReactionQueueOptions {
     /** Any additional options to add to the message */
     additionalOptions?: ReactionOption[];
 
+    messageDebounceTimeout?: number;
+
     /** Style/transform a user's name to display in the queue */
     userToString?: (user: User, queueType: QueueType) => string;
 }
@@ -95,8 +99,8 @@ export class ReactionQueue {
     }>;
 
     promptTimeoutCountMap: ComparisonMap<User, {
-        timeouts: number;
-        skips: number;
+        timeout: number;
+        skip: number;
     }>;
 
     promptAcceptOrSkipMessage: string | GetMessageFunction;
@@ -112,6 +116,8 @@ export class ReactionQueue {
     skipEmoji: EmojiIdentifierResolvable;
 
     userToString: ReactionQueueOptions['userToString'];
+
+    private debouncedUpdate: () => Promise<void>;
 
     constructor(
         channel: TextChannel | DMChannel,
@@ -130,7 +136,8 @@ export class ReactionQueue {
             userToString=defaultUserToString,
             promptAcceptOrSkipMessage='Accept newly active slot or return to the front of the queue?',
             promptAcceptMessage='Accept newly active slot?',
-            additionalOptions=[]
+            additionalOptions=[],
+            messageDebounceTimeout=300,
         }: ReactionQueueOptions = {}
     ) {
         if(!requireAvailable && !maxActive) {
@@ -157,13 +164,13 @@ export class ReactionQueue {
 
         this.additionalOptions = additionalOptions;
 
-        if(requireAvailable) {
-            this.available = new ComparisonQueue(USER_COMPARATOR);
-        }
+        this.debouncedUpdate = debounce(this.updateMessage, messageDebounceTimeout);
 
         this.active = new ComparisonQueue(USER_COMPARATOR);
         this.pending = new ComparisonQueue(USER_COMPARATOR);
         this.queue = new ComparisonQueue(USER_COMPARATOR);
+        this.available = new ComparisonQueue(USER_COMPARATOR);
+
         this.promptMap = new ComparisonMap((a, b)=>a.id===b.id);
         this.promptTimeoutCountMap = new ComparisonMap((a, b)=>a.id===b.id);
 
@@ -185,6 +192,11 @@ export class ReactionQueue {
         }
     }
 
+    private updateMessage: () => Promise<void> = async () => {
+        const message = this.getMessage();
+        await this.message.edit(message);
+    };
+
     private userAcceptPrompt = (_: MessageReaction, user: User): boolean | void => {
         this.promptMap.remove(user);
         this.pending.remove(user);
@@ -192,7 +204,7 @@ export class ReactionQueue {
         this.updateMessage();
     };
 
-    private generatePromptPassMethod = (countKey: 'timeouts' | 'skips', max: number) => (_: MessageReaction, user: User): boolean | void => {
+    private userPassPromptFactory = (countKey: 'timeout' | 'skip', max: number) => (_: MessageReaction, user: User): boolean | void => {
         this.promptMap.remove(user);
         this.pending.remove(user);
 
@@ -204,7 +216,7 @@ export class ReactionQueue {
         }
 
         this.checkQueueAndPromote();
-        this.updateMessage();
+        this.debouncedUpdate();
     };
 
     private sendPendingPrompt(user: User): void {
@@ -216,7 +228,7 @@ export class ReactionQueue {
         if(this.queue.length > 0) {
             options.push({
                 emoji: this.skipEmoji,
-                collect: this.generatePromptPassMethod('skips', this.maxPendingSkips)
+                collect: this.userPassPromptFactory('skip', this.maxPendingSkips)
             });
         }
 
@@ -231,7 +243,7 @@ export class ReactionQueue {
             options, 
             this.queue.length ? this.pendingTimeout : 0,
             {
-                timeoutCallback: this.generatePromptPassMethod('timeouts', this.maxPendingTimeouts)
+                timeoutCallback: this.userPassPromptFactory('timeout', this.maxPendingTimeouts)
             },
             this.templateToMessage(user, this.queue.length ? this.promptAcceptOrSkipMessage : this.promptAcceptMessage)
         );
@@ -336,10 +348,6 @@ export class ReactionQueue {
         return out;
     }
 
-    private async updateMessage(): Promise<void> {
-        await this.message.edit(this.getMessage());
-    }
-
     private getMessage(): MessageEmbed {
         const options: MessageEmbedOptions = {
             title: this.title,
@@ -362,7 +370,7 @@ export class ReactionQueue {
 
     async setMaxActive(maxActive: number): Promise<void> {
         this.maxActive = maxActive;
-        await this.updateMessage();
+        await this.debouncedUpdate();
     }
 
     getMaxActive(): number {
@@ -406,7 +414,7 @@ export class ReactionQueue {
         }
 
         this.checkQueueAndPromote();
-        this.updateMessage();
+        this.debouncedUpdate();
 
         return true;
     };
@@ -424,19 +432,19 @@ export class ReactionQueue {
 
         this.checkAndUpdatePrompts();
         this.checkQueueAndPromote();
-        this.updateMessage();
+        this.debouncedUpdate();
     };
 
     addAvailableUser = (user: User): boolean => {
         this.available.push(user);
     
         this.checkQueueAndPromote();
-        this.updateMessage();
+        this.debouncedUpdate();
         return true;
     };
 
     removeAvailableUser = (user: User): void => {
         this.available.remove(user);
-        this.updateMessage();
+        this.debouncedUpdate();
     };
 }

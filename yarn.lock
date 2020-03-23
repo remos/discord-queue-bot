@@ -438,6 +438,11 @@
   resolved "https://registry.yarnpkg.com/@types/color-name/-/color-name-1.1.1.tgz#1c1261bbeaa10a8055bbc5d8ab84b7b2afc846a0"
   integrity sha512-rr+OQyAjxze7GgWrSaJwydHStIhHq2lvY3BOC2Mj7KnzI7XK0Uw1TOOdI9lDoajEbSWLiYgoo4f1R51erQfhPQ==
 
+"@types/debounce-promise@^3.1.1":
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/@types/debounce-promise/-/debounce-promise-3.1.1.tgz#38fcb523f7d11d521fca2e8ccb43f0982fbf5ce7"
+  integrity sha512-eOSiMKpPYI5Cx5tmx4xQ1e0bLz9n56NVv4ao0YQcYtIJYZjdoCDFvZwIQgXDiFHU5SFtKtN2vcqx5ZIXvj1Ccg==
+
 "@types/eslint-visitor-keys@^1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@types/eslint-visitor-keys/-/eslint-visitor-keys-1.0.0.tgz#1ee30d79544ca84d68d4b3cdb0af4f205663dd2d"
@@ -475,6 +480,11 @@
   version "7.0.4"
   resolved "https://registry.yarnpkg.com/@types/json-schema/-/json-schema-7.0.4.tgz#38fd73ddfd9b55abb1e1b2ed578cb55bd7b7d339"
   integrity sha512-8+KAKzEvSUdeo+kmqnKrqgeE+LcA0tjYWFY7RPProVYwnqDjukzO+3b6dLD56rYX5TdWejnEOLJYOIeh4CXKuA==
+
+"@types/node@^12.7.2":
+  version "12.12.30"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-12.12.30.tgz#3501e6f09b954de9c404671cefdbcc5d9d7c45f6"
+  integrity sha512-sz9MF/zk6qVr3pAnM0BSQvYIBK44tS75QC5N+VbWSE4DjCV/pJ+UzCW/F+vVnl7TkOPcuwQureKNtSSwjBTaMg==
 
 "@types/node@^13.9.0":
   version "13.9.0"
@@ -1078,6 +1088,11 @@ date-format@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/date-format/-/date-format-3.0.0.tgz#eb8780365c7d2b1511078fb491e6479780f3ad95"
   integrity sha512-eyTcpKOcamdhWJXj56DpQMo1ylSQpcGtGKXcU0Tb97+K56/CF5amAqqqNj0+KvA0iw2ynxtHWFsPDSClCxe48w==
+
+debounce-promise@^3.1.2:
+  version "3.1.2"
+  resolved "https://registry.yarnpkg.com/debounce-promise/-/debounce-promise-3.1.2.tgz#320fb8c7d15a344455cd33cee5ab63530b6dc7c5"
+  integrity sha512-rZHcgBkbYavBeD9ej6sP56XfG53d51CD4dnaw989YX/nZ/ZJfgRx/9ePKmTNiUiyQvh4mtrMoS3OAWW+yoYtpg==
 
 debug@^2.2.0, debug@^2.3.3:
   version "2.6.9"
@@ -3861,6 +3876,11 @@ ts-jest@^25.2.1:
     resolve "1.x"
     semver "^5.5"
     yargs-parser "^16.1.0"
+
+tsargs@^1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/tsargs/-/tsargs-1.4.0.tgz#9a61a743a16e5f461fb9bf0f2af93b5d56ea675d"
+  integrity sha512-ml6SzWtY/fg1TUiQ33ingoUQXW16moiX07nOxF/v7I1ngMUzxb0Ii1rQ1nUh3noAyPQxrYIb0GLWDjImTJ9D2Q==
 
 tslib@^1.8.1, tslib@^1.9.0, tslib@~1.11.1:
   version "1.11.1"
