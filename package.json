@@ -19,12 +19,12 @@
     "node": ">= 12"
   },
   "scripts": {
-    "prepublish": "tsc && chmod +x dist/cli.js",
+    "prepublishOnly": "tsc && chmod +x dist/cli.js",
     "build": "tsc && chmod +x dist/cli.js",
     "prestart": "tsc && chmod +x dist/cli.js",
     "start": "node dist/cli.js",
     "test": "jest && stryker run",
-    "test:ci": "jest && stryker run --reporters clear-text,dashboard",
+    "test:ci": "jest && stryker run --reporters dashboard",
     "jest": "jest",
     "stryker": "stryker run"
   },
