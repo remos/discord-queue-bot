@@ -455,7 +455,7 @@ export class ReactionQueue extends EventEmitter<{
 
         this.updateMessage();
 
-        this.emit('userActive', user, index);
+        this.emit('userQueued', user, index);
     };
 
     moveUserToActive = (user: User): void => {
@@ -468,7 +468,7 @@ export class ReactionQueue extends EventEmitter<{
 
         this.updateMessage();
 
-        this.emit('userQueued', user, index);
+        this.emit('userActive', user, index);
     };
 
     moveUserToPending = (user: User): void => {
