@@ -115,8 +115,10 @@ export class ReactionQueue extends EventEmitter<{
     userQueued: (user: User, index: number) => void;
     userActive: (user: User, index: number) => void;
     userPending: (user: User, index: number) => void;
+    userAvailable: (user: User, index: number) => void;
     userAdd: (user: User) => void;
     userRemove: (user: User, queueName: QueueType) => void;
+    messageCreated: (message: Message) => void;
     messageUpdated: (message: MessageEmbed) => void;
 }> {
     private channel: TextChannel | DMChannel;
@@ -229,6 +231,7 @@ export class ReactionQueue extends EventEmitter<{
         } else {
             this.channel.send(this.getMessage()).then(message => {
                 this.message = message;
+                this.emit('messageCreated', message);
                 this.createReactionHandler();
             });
         }
@@ -536,10 +539,12 @@ export class ReactionQueue extends EventEmitter<{
     };
 
     addAvailableUser = (user: User): boolean => {
-        this.available.push(user);
+        const index = this.available.push(user);
     
         this.checkQueueAndPromote();
         this.updateMessage();
+
+        this.emit('userAvailable', user, index);
 
         return true;
     };
