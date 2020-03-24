@@ -454,7 +454,9 @@ export class ReactionQueue extends EventEmitter<{
         this.active.remove(user);
         this.pending.remove(user);
 
-        const index = this.queue.push(user);
+        const index = this.queue.has(user) ? 
+            this.queue.indexOf(user) :
+            this.queue.push(user);
 
         this.updateMessage();
 
@@ -467,7 +469,9 @@ export class ReactionQueue extends EventEmitter<{
         this.queue.remove(user);
         this.pending.remove(user);
 
-        const index = this.active.push(user);
+        const index = this.active.has(user) ? 
+            this.active.indexOf(user) :
+            this.active.push(user);
 
         this.updateMessage();
 
@@ -478,7 +482,9 @@ export class ReactionQueue extends EventEmitter<{
         this.queue.remove(user);
         this.active.remove(user);
 
-        const index = this.pending.push(user);
+        const index = this.pending.has(user) ? 
+            this.pending.indexOf(user) :
+            this.pending.push(user);
 
         this.sendPendingPrompt(user);
         this.updateMessage();
@@ -539,7 +545,9 @@ export class ReactionQueue extends EventEmitter<{
     };
 
     addAvailableUser = (user: User): boolean => {
-        const index = this.available.push(user);
+        const index = this.available.has(user) ? 
+            this.available.indexOf(user) :
+            this.available.push(user);
     
         this.checkQueueAndPromote();
         this.updateMessage();

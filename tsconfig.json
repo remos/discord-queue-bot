@@ -5,6 +5,8 @@
         "sourceMap": true,
         "declaration": true,
         "moduleResolution": "node",
+        "target": "ES6",
+        "module": "CommonJS",
         "lib": [
             "ES2019.Array"
         ],

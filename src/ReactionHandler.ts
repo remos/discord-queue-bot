@@ -12,6 +12,7 @@ import {ComparisonSet} from './ComparisonSet';
 import {EmojiMap} from './EmojiMap';
 
 import debounce = require('debounce-promise');
+import { StatelessReactionCollector } from "./StatelessReactionCollector";
 
 export interface ReactionCallback<T> {
     (reaction: MessageReaction, user: User): T;
@@ -97,7 +98,8 @@ export class ReactionHandler {
     };
 
     private createReactionCollector = (): void => {
-        this.collector = this.message.createReactionCollector(
+        this.collector = new StatelessReactionCollector(
+            this.message,
             (_, user) => user.id != user.client.user.id,
             {
                 dispose: true,
