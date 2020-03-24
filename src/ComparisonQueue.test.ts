@@ -1,17 +1,17 @@
 import {ComparisonQueue} from './ComparisonQueue';
 
-describe('ComparisonQueue', ()=>{
-    it("initialises empty", ()=>{
+describe('ComparisonQueue', () => {
+    it("initialises empty", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b
+            ({id: a}, {id: b}) => a==b
         );
 
         expect(queue.get()).toEqual([]);
     });
 
-    it("initialises populated", ()=>{
+    it("initialises populated", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 3}, {id: 1}]
         );
 
@@ -20,27 +20,27 @@ describe('ComparisonQueue', ()=>{
         );
     });
 
-    it("join queue to string", ()=>{
+    it("join queue to string", () => {
         const queue = new ComparisonQueue(
-            (a, b)=>a==b,
+            (a, b) => a==b,
             [1, 2, 3, 1]
         );
 
         expect(queue.join(', ')).toEqual('1, 2, 3, 1');
     });
 
-    it("gets an individual entry by index", ()=>{
+    it("gets an individual entry by index", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 3}, {id: 1}]
         );
 
         expect(queue.get(1)).toEqual({id: 2});
     });
 
-    it("gets the full queue", ()=>{
+    it("gets the full queue", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 3}, {id: 1}]
         );
 
@@ -49,9 +49,9 @@ describe('ComparisonQueue', ()=>{
         ]);
     });
 
-    it("remove by value", ()=>{
+    it("remove by value", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 3}, {id: 1}]
         );
 
@@ -65,9 +65,9 @@ describe('ComparisonQueue', ()=>{
         expect(queue.has({id: 2})).toEqual(true);
     });
 
-    it("has", ()=>{
+    it("has", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 3}, {id: 1}]
         );
 
@@ -75,22 +75,22 @@ describe('ComparisonQueue', ()=>{
         expect(queue.has({id: 4})).toEqual(false);
     });
 
-    it("push", ()=>{
+    it("push", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 3}, {id: 1}]
         );
 
-        queue.push({id: 5});
+        expect(queue.push({id: 5})).toEqual(4);
 
         expect(queue.get()).toEqual([
             {id: 1}, {id: 2}, {id: 3}, {id: 1}, {id: 5}
         ]);
     });
 
-    it("shift", ()=>{
+    it("shift", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 3}, {id: 4}]
         );
 
@@ -101,22 +101,22 @@ describe('ComparisonQueue', ()=>{
         ]);
     });
 
-    it("unshift", ()=>{
+    it("unshift", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 3}, {id: 4}]
         );
 
-        queue.unshift({id: 5});
+        expect(queue.unshift({id: 5})).toEqual(0);
 
         expect(queue.get()).toEqual([
             {id: 5}, {id: 1}, {id: 2}, {id: 3}, {id: 4}
         ]);
     });
 
-    it("insert", ()=>{
+    it("insert", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 3}, {id: 4}]
         );
 
@@ -127,27 +127,27 @@ describe('ComparisonQueue', ()=>{
         ]);
     });
 
-    it("map", ()=>{
+    it("map", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 5}, {id: 2}, {id: 3}, {id: 4}]
         );
 
-        expect(queue.map(value=>value.id)).toEqual([
+        expect(queue.map(value => value.id)).toEqual([
             5, 2, 3, 4
         ]);
     });
 
-    it("concat", ()=>{
+    it("concat", () => {
         const queue = new ComparisonQueue(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 5}, {id: 2}, {id: 3}, {id: 4}]
         );
 
         expect(queue.concat(
             [{id: 1}, {id: 1}],
             new ComparisonQueue(
-                ({id: a}, {id: b})=>a==b,
+                ({id: a}, {id: b}) => a==b,
                 [{id: 2}, {id: 5}]
             )
         )).toEqual([

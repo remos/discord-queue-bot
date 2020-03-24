@@ -3,12 +3,15 @@ import {
     User,
     EmojiIdentifierResolvable,
     Message,
+    ReactionCollector,
     DiscordAPIError
 } from "discord.js";
 
 import {compareEmoji} from './util';
 import {ComparisonSet} from './ComparisonSet';
 import {EmojiMap} from './EmojiMap';
+
+import debounce = require('debounce-promise');
 
 export interface ReactionCallback<T> {
     (reaction: MessageReaction, user: User): T;
@@ -31,20 +34,54 @@ export interface ReactionOption extends ReactionCallbacks {
     emoji: EmojiIdentifierResolvable;
 }
 
-export class ReactionMessage {
+interface ReactionMessageOptions {
+    timeout?: number;
+    defaultOption?: ReactionCallbacks;
+    timeoutCallback?: () => void;
+}
+
+function ignore404Errors(e: unknown): void {
+    if(e instanceof DiscordAPIError && e.httpStatus === 404) {
+        return;
+    }
+
+    throw e;
+}
+
+export class ReactionHandler {
     message: Message;
+    timeout: number;
     optionMap: EmojiMap<ReactionOption>;
     defaultOption: ReactionCallbacks;
-    constructor(message: Message, options: ReactionOption[], defaultOption?: ReactionCallbacks) {
+    timeoutCallback: () => void;
+    collector: ReactionCollector;
+
+    stopped = false;
+
+    constructor(message: Message,
+        options: ReactionOption[],
+        {
+            timeout=0,
+            defaultOption,
+            timeoutCallback
+        }: ReactionMessageOptions,
+    ) {
+        if(!message) {
+            throw 'Message must be provided';
+        }
+
         this.message = message;
+        this.timeout = timeout;
         this.optionMap = new EmojiMap<ReactionOption>(message.client, options);
         this.defaultOption = defaultOption;
+        this.timeoutCallback = timeoutCallback;
 
         this.rebuildReactions().then(this.createReactionCollector);
+        this.rebuildReactions = debounce(this.rebuildReactions, 300);
     }
 
     private callbackProxy = (callbackMethodName: CallbackMethodName) => (reaction: MessageReaction, user: User): void => {
-        if(user !== user.client.user) {
+        if(!user || user.id !== user.client.user.id) {
             const callback = this.getCallback(reaction);
             if(callback) {
                 if(callback[callbackMethodName]) {
@@ -60,14 +97,21 @@ export class ReactionMessage {
     };
 
     private createReactionCollector = (): void => {
-        this.message.createReactionCollector((_, user)=>{
-            return user != user.client.user;
-        }, {
-            dispose: true
-        })
+        this.collector = this.message.createReactionCollector(
+            (_, user) => user.id != user.client.user.id,
+            {
+                dispose: true,
+                time: this.timeout
+            }
+        )
             .on('collect', this.callbackProxy('collect'))
             .on('remove', this.callbackProxy('remove'))
-            .on('dispose', this.callbackProxy('dispose'));
+            .on('dispose', this.callbackProxy('dispose'))
+            .on('end', (_, reason) => {
+                if(reason === 'time') {
+                    this.timeoutCallback();
+                }
+            });
     };
 
     getOption(reaction: MessageReaction): ReactionOption {
@@ -90,35 +134,56 @@ export class ReactionMessage {
         this.rebuildReactions();
     }
 
-    async rebuildReactions(): Promise<void |MessageReaction[]> {
-        this.message = await this.message.fetch();
+    stop(): void {
+        this.stopped = true;
+        if(this.collector) {
+            this.collector.stop();
+        }
+    }
+
+    async rebuildReactions(): Promise<void | MessageReaction[]> {
+        if(this.stopped) {
+            return;
+        }
 
         const existingReactions = new ComparisonSet(compareEmoji);
         const promises = [];
 
         for(const reaction of this.message.reactions.cache.array()) {
-            promises.push(reaction.users.fetch().then((users)=>{
-                if(users.size) {
-                    const option = this.getOption(reaction);
-                    if(!option || (option.condition && !option.condition())) {
-                        if(this.defaultOption && this.defaultOption.validate && !this.defaultOption.validate(reaction, null)) {
-                            reaction.remove();
-                        } else {
-                            reaction.users.remove(this.message.client.user);
+            promises.push(
+                reaction.users.fetch().then((users) => {
+                    if(users.size) {
+                        const removalPromises = [];
+                        const option = this.getOption(reaction);
+
+                        if(!option || (option.condition && !option.condition())) {
+                            if(this.defaultOption && this.defaultOption.validate && !this.defaultOption.validate(reaction, null)) {
+                                removalPromises.push(
+                                    reaction.remove()
+                                );
+                            } else {
+                                removalPromises.push(
+                                    reaction.users.remove(this.message.client.user)
+                                );
+                            }
+                        } else if(option) {
+                            existingReactions.add(option.emoji);
                         }
-                    } else if(option) {
-                        existingReactions.add(option.emoji);
-                    }
-    
-                    if(option && option.validate) {
-                        for(const user of users.array()) {
-                            if(user !== user.client.user && !option.validate(reaction, user)) {
-                                reaction.users.remove(user);
+        
+                        if(option && option.validate) {
+                            for(const user of users.array()) {
+                                if(user !== user.client.user && !option.validate(reaction, user)) {
+                                    removalPromises.push(
+                                        reaction.users.remove(user)
+                                    );
+                                }
                             }
                         }
+
+                        return removalPromises;
                     }
-                }
-            }));
+                }).catch(ignore404Errors)
+            );
         }
 
         await Promise.all(promises);
@@ -130,10 +195,6 @@ export class ReactionMessage {
             }
         }
 
-        return Promise.all(reactionPromises).catch(e=>{
-            if(!(e instanceof DiscordAPIError) || e.code === 404) {
-                throw e;
-            }
-        });
+        return Promise.all(reactionPromises).catch(ignore404Errors);
     }
 }

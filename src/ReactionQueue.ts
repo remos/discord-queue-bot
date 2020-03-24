@@ -1,21 +1,48 @@
-import { TextChannel, MessageEmbed, MessageEmbedOptions, DMChannel, EmojiIdentifierResolvable, User, Message, MessageResolvable } from 'discord.js';
-import {ReactionMessage, ReactionOption} from './ReactionMessage';
+import {
+    TextChannel,
+    MessageEmbed,
+    MessageEmbedOptions,
+    DMChannel,
+    EmojiIdentifierResolvable,
+    User,
+    Message,
+    MessageResolvable,
+    MessageReaction
+} from 'discord.js';
+import {ReactionHandler, ReactionOption} from './ReactionHandler';
 
 import {UserPrompt} from './UserPrompt';
 import { ComparisonMap } from './ComparisonMap';
 import { ComparisonQueue } from './ComparisonQueue';
 import { Comparator } from './util';
 
-type QueueType = 'available' | 'active' | 'pending' | 'queue';
+import debounce = require('debounce-promise');
+import {EventEmitter} from 'tsee';
 
-export interface GetMessageFunction {
-    (context: {
-        user: User;
-        counts: {
-            skips: number;
-            timeouts: number;
-        };
-    }): string;
+type QueueType = 'available' | 'active' | 'pending' | 'queue';
+type PassType = 'timeout' | 'skip';
+
+export interface GetMessageFunction<T> {
+    (context: T): string | MessageEmbed;
+}
+
+export interface AcceptGetMessageFunctionContext {
+    user: User;
+    userToString: ReactionQueueOptions['userToString'];
+    counts: {
+        skip: number;
+        timeout: number;
+    };
+}
+
+export interface AcceptOrSkipGetMessageFunctionContext {
+    user: User;
+    userToString: ReactionQueueOptions['userToString'];
+    expires: Date;
+    counts: {
+        skip: number;
+        timeout: number;
+    };
 }
 
 export interface ReactionQueueOptions {
@@ -43,31 +70,61 @@ export interface ReactionQueueOptions {
     skipEmoji?: EmojiIdentifierResolvable;
 
     /** Message to display when a user can either accept or skip */
-    promptAcceptOrSkipMessage?: string | GetMessageFunction;
+    promptAcceptOrSkipMessage?: string | GetMessageFunction<AcceptOrSkipGetMessageFunctionContext>;
     /** Message to display when a user can only accept (i.e. no-one else in the queue behind them) */
-    promptAcceptMessage?: string | GetMessageFunction;
+    promptAcceptMessage?: string | GetMessageFunction<AcceptGetMessageFunctionContext>;
 
     /** Any additional options to add to the message */
     additionalOptions?: ReactionOption[];
 
+    messageDebounceTimeout?: number;
+
     /** Style/transform a user's name to display in the queue */
-    userToString?: (user: User, queueType: QueueType) => string;
+    userToString?: (user: User, queueType?: QueueType) => string;
 }
 
-function defaultUserToString(user: User, queueType: QueueType): string {
+const defaultUserToString: ReactionQueueOptions['userToString'] = (user: User, queueType?: QueueType): string => {
     const str = user.toString();
 
     return queueType === 'pending' ? `_${str}_` : str;
-}
+};
+
+const defaultPromptAcceptOrSkip: GetMessageFunction<AcceptOrSkipGetMessageFunctionContext> = ({user, userToString, expires}): MessageEmbed => {
+    const messageOptions: MessageEmbedOptions = {
+        description: `${userToString(user)} - Accept newly active slot or return to the front of the queue?`,
+        timestamp: expires,
+        footer: {text: 'Expires'}
+    };
+
+    return new MessageEmbed(messageOptions);
+};
+
+const defaultPromptAccept: GetMessageFunction<AcceptGetMessageFunctionContext> = ({user, userToString}): MessageEmbed => {
+    const messageOptions: MessageEmbedOptions = {
+        description: `${userToString(user)} - Accept newly active slot?`
+    };
+
+    return new MessageEmbed(messageOptions);
+};
 
 type UserQueue = ComparisonQueue<User>;
 const USER_COMPARATOR: Comparator<User> = (a: User, b: User): boolean => a.id === b.id;
 
-export class ReactionQueue {
+export class ReactionQueue extends EventEmitter<{
+    userPass: (user: User, passType: PassType, returnedToQueue: boolean) => void;
+    userQueued: (user: User, index: number) => void;
+    userActive: (user: User, index: number) => void;
+    userPending: (user: User, index: number) => void;
+    userAvailable: (user: User, index: number) => void;
+    userAdd: (user: User) => void;
+    userRemove: (user: User, queueName: QueueType) => void;
+    messageCreated: (message: Message) => void;
+    messageUpdated: (message: MessageEmbed) => void;
+}> {
     private channel: TextChannel | DMChannel;
     title: string;
     message: Message;
-    reactionMessage: ReactionMessage;
+    reactionHandler: ReactionHandler;
 
     requireAvailable: boolean;
     maxActive?: number;
@@ -85,12 +142,12 @@ export class ReactionQueue {
     }>;
 
     promptTimeoutCountMap: ComparisonMap<User, {
-        timeouts: number;
-        skips: number;
+        timeout: number;
+        skip: number;
     }>;
 
-    promptAcceptOrSkipMessage: string | GetMessageFunction;
-    promptAcceptMessage: string | GetMessageFunction;
+    promptAcceptOrSkipMessage: string | GetMessageFunction<AcceptOrSkipGetMessageFunctionContext>;
+    promptAcceptMessage: string | GetMessageFunction<AcceptGetMessageFunctionContext>;
 
     pendingTimeout: number;
     maxPendingTimeouts: number;
@@ -118,11 +175,14 @@ export class ReactionQueue {
             acceptEmoji='✔️',
             skipEmoji='✖️',
             userToString=defaultUserToString,
-            promptAcceptOrSkipMessage='Accept newly active slot or return to the front of the queue?',
-            promptAcceptMessage='Accept newly active slot?',
-            additionalOptions=[]
+            promptAcceptOrSkipMessage=defaultPromptAcceptOrSkip,
+            promptAcceptMessage=defaultPromptAccept,
+            additionalOptions=[],
+            messageDebounceTimeout=300,
         }: ReactionQueueOptions = {}
     ) {
+        super();
+
         if(!requireAvailable && !maxActive) {
             throw 'Queue must either be paired or have a set maxActive';
         }
@@ -138,8 +198,8 @@ export class ReactionQueue {
 
         this.queueEmoji = queueEmoji;
         this.availableEmoji = availableEmoji;
-        this.acceptEmoji = channel.client.emojis.resolveIdentifier(acceptEmoji);
-        this.skipEmoji = channel.client.emojis.resolveIdentifier(skipEmoji);
+        this.acceptEmoji = acceptEmoji;
+        this.skipEmoji = skipEmoji;
 
         this.userToString = userToString;
         this.promptAcceptOrSkipMessage = promptAcceptOrSkipMessage;
@@ -147,75 +207,58 @@ export class ReactionQueue {
 
         this.additionalOptions = additionalOptions;
 
-        if(requireAvailable) {
-            this.available = new ComparisonQueue(USER_COMPARATOR);
-        }
+        const updateMessage = this.updateMessage;
+        this.updateMessage = debounce(this.updateMessage, messageDebounceTimeout);
 
         this.active = new ComparisonQueue(USER_COMPARATOR);
         this.pending = new ComparisonQueue(USER_COMPARATOR);
         this.queue = new ComparisonQueue(USER_COMPARATOR);
-        this.promptMap = new ComparisonMap((a, b)=>a.id===b.id);
-        this.promptTimeoutCountMap = new ComparisonMap((a, b)=>a.id===b.id);
+        this.available = new ComparisonQueue(USER_COMPARATOR);
+
+        this.promptMap = new ComparisonMap(USER_COMPARATOR);
+        this.promptTimeoutCountMap = new ComparisonMap(USER_COMPARATOR);
 
         if(existingMessage) {
             (
                 existingMessage instanceof Message ?
                 Promise.resolve(existingMessage) :
                 channel.messages.fetch(existingMessage)
-            ).then(message=>{
+            ).then(message => {
                 this.message = message;
-                this.initReactionMessage();
-                this.updateMessage();
+                this.createReactionHandler();
+                updateMessage();
             });
         } else {
-            this.channel.send(this.getMessage()).then(message=>{
+            this.channel.send(this.getMessage()).then(message => {
                 this.message = message;
-                this.initReactionMessage();
+                this.emit('messageCreated', message);
+                this.createReactionHandler();
             });
         }
     }
 
-    async setMaxActive(maxActive: number): Promise<void> {
-        this.maxActive = maxActive;
-        await this.updateMessage();
-    }
+    updateMessage: () => Promise<void> = async () => {
+        const message = this.getMessage();
+        await this.message.edit(message);
 
-    getMaxActive(): number {
-        return this.requireAvailable ? this.available.length : this.maxActive;
-    }
-
-    getActiveUsers(): UserQueue {
-        return this.active;
-    }
-
-    getPendingUsers(): UserQueue {
-        return this.pending;
-    }
-
-    getAvailableUsers(): UserQueue {
-        return this.available;
-    }
-
-    getQueuedUsers(): UserQueue {
-        return this.queue;
-    }
-
-    private userAcceptPrompt = (user: User): void => {
-        this.promptMap.remove(user);
-        this.pending.remove(user);
-        this.active.push(user);
-        this.updateMessage();
+        this.emit('messageUpdated', message);
     };
 
-    private generatePromptPassMethod = (countKey: 'timeouts' | 'skips', max: number) => (user: User): void => {
+    private userAcceptPrompt = (_: MessageReaction, user: User): boolean | void => {
+        this.moveUserToActive(user);
+    };
+
+    private userPassPromptFactory = (passType: PassType, max: number) => (_: MessageReaction, user: User): boolean | void => {
         this.promptMap.remove(user);
         this.pending.remove(user);
 
         const counts = this.promptTimeoutCountMap.get(user);
-        if(!counts || ++counts[countKey] < max) {
-            this.queue.insert(user, 1);
+        if(!counts || ++counts[passType] < max) {
+            this.emit('userQueued', user, this.queue.insert(user, 1));
+            this.emit('userPass', user, passType, true);
         } else {
-            this.reactionMessage.rebuildReactions();
+            this.reactionHandler.rebuildReactions();
+            this.emit('userPass', user, passType, false);
         }
 
         this.checkQueueAndPromote();
@@ -225,40 +268,52 @@ export class ReactionQueue {
     private sendPendingPrompt(user: User): void {
         const options = [{
             emoji: this.acceptEmoji,
-            callback: this.userAcceptPrompt
+            collect: this.userAcceptPrompt
         }];
 
         if(this.queue.length > 0) {
             options.push({
                 emoji: this.skipEmoji,
-                callback: this.generatePromptPassMethod('skips', this.maxPendingSkips)
+                collect: this.userPassPromptFactory('skip', this.maxPendingSkips)
             });
         }
 
-        const prompt = new UserPrompt(
-            user,
-            this.queue.length ? this.pendingTimeout : 0,
-            options, 
-            this.generatePromptPassMethod('timeouts', this.maxPendingTimeouts)
-        );
+        const prompt = this.promptMap.has(user) ? this.promptMap.get(user).prompt : new UserPrompt(user, this.channel);
 
         this.promptMap.add(user, {
             prompt: prompt,
             skippable: !!this.queue.length
         });
 
-        prompt.prompt(this.templateToMessage(user, this.queue.length ? this.promptAcceptOrSkipMessage : this.promptAcceptMessage));
+        const context: AcceptGetMessageFunctionContext = {
+            user: user,
+            userToString: this.userToString,
+            counts: this.promptTimeoutCountMap.get(user)
+        };
+
+        prompt.prompt(
+            options, 
+            this.queue.length ? this.pendingTimeout : 0,
+            {
+                timeoutCallback: this.userPassPromptFactory('timeout', this.maxPendingTimeouts)
+            },
+            this.templateToMessage(
+                user,
+                this.queue.length ? this.promptAcceptOrSkipMessage : this.promptAcceptMessage,
+                this.queue.length ? {
+                    ...context,
+                    expires: new Date(Date.now() + this.pendingTimeout)
+                } : context
+            )
+        );
     }
 
-    private templateToMessage(user: User, template: string | GetMessageFunction): string {
+    private templateToMessage<T>(user: User, template: string | GetMessageFunction<T>, context: T): string | MessageEmbed {
         if(typeof template === 'string') {
             return template;
         }
 
-        return template({
-            user: user,
-            counts: this.promptTimeoutCountMap.get(user)
-        });
+        return template(context);
     }
 
     private checkQueueAndPromote(): void {
@@ -267,77 +322,15 @@ export class ReactionQueue {
         }
     }
 
-    private moveUserToPending(user: User): void {
-        this.pending.push(user);
-        this.sendPendingPrompt(user);
-    }
-
     private checkAndUpdatePrompts(): void {
         for(const entry of [...this.promptMap.getEntries()]) {
             if(entry.value.skippable !== !!this.queue.length) {
-                entry.value.prompt.cancel();
-                this.promptMap.remove(entry.key);
                 this.sendPendingPrompt(entry.key);
             }
         }
     }
 
-    isUserQueued = (user: User): boolean => (
-        this.active.has(user) || this.pending.has(user) || this.queue.has(user)
-    );
-
-    addUser = (user: User): boolean => {
-        if(this.active.has(user) || this.pending.has(user) || this.queue.has(user)) {
-            return true;
-        }
-
-        if(this.active.length + this.pending.length < this.getMaxActive()) {
-            this.active.push(user);
-        } else {
-            this.promptTimeoutCountMap.add(user, {
-                timeouts: 0,
-                skips: 0
-            });
-            this.queue.push(user);
-            this.checkAndUpdatePrompts();
-        }
-
-        this.checkQueueAndPromote();
-        this.updateMessage();
-
-        return true;
-    };
-
-    removeUser = (user: User): void => {
-        for(const list of [this.active, this.pending, this.queue]) {
-            if(list.has(user)) {
-                if(this.promptMap.has(user)) {
-                    this.promptMap.remove(user).prompt.cancel();
-                }
-
-                list.remove(user);
-            }
-        }
-
-        this.checkAndUpdatePrompts();
-        this.checkQueueAndPromote();
-        this.updateMessage();
-    };
-
-    addAvailableUser = (user: User): boolean => {
-        this.available.push(user);
-    
-        this.checkQueueAndPromote();
-        this.updateMessage();
-        return true;
-    };
-
-    removeAvailableUser = (user: User): void => {
-        this.available.remove(user);
-        this.updateMessage();
-    };
-
-    private initReactionMessage(): ReactionMessage {
+    private createReactionHandler(): ReactionHandler {
         const options: ReactionOption[] = [
             {
                 emoji: this.queueEmoji,
@@ -358,10 +351,12 @@ export class ReactionQueue {
             });
         }
 
-        return this.reactionMessage = new ReactionMessage(
+        return this.reactionHandler = new ReactionHandler(
             this.message,
-            options, 
-            {validate: (): boolean => false}
+            options,
+            {
+                defaultOption: {validate: (): boolean => false}
+            }
         );
     }
 
@@ -393,7 +388,7 @@ export class ReactionQueue {
                 continue;
             }
 
-            out.push(...queue.map(user=>this.userToString(user, queueType)));
+            out.push(...queue.map(user => this.userToString(user, queueType)));
         }
 
         // Display remaining slots - must be at least one or discord errors
@@ -404,12 +399,8 @@ export class ReactionQueue {
         return out;
     }
 
-    private async updateMessage(): Promise<void> {
-        await this.message.edit(this.getMessage());
-    }
-
     private getMessage(): MessageEmbed {
-        const options: MessageEmbedOptions = {
+        const messageOptions: MessageEmbedOptions = {
             title: this.title,
             fields: [],
             timestamp: new Date(),
@@ -417,14 +408,151 @@ export class ReactionQueue {
         };
 
         if(this.requireAvailable) {
-            options.fields.push({name: `Open`, value: this.getQueueFieldMessage('available').join('\n'), inline: true});
+            messageOptions.fields.push({name: `Open`, value: this.getQueueFieldMessage('available').join('\n'), inline: true});
         }
 
         const active = this.getQueueFieldMessage(['active', 'pending'], this.getMaxActive());
 
-        options.fields.push({name: `Active ${this.active.length}${this.pending.length ? `+${this.pending.length}` : ''}/${this.getMaxActive()}`, value: active.join("\n"), inline: true});
-        options.fields.push({name: `Queued`, value: this.getQueueFieldMessage('queue').join('\n'), inline: true});
+        messageOptions.fields.push({name: `Active ${this.active.length}${this.pending.length ? `+${this.pending.length}` : ''}/${this.getMaxActive()}`, value: active.join("\n"), inline: true});
+        messageOptions.fields.push({name: `Queued`, value: this.getQueueFieldMessage('queue').join('\n'), inline: true});
 
-        return new MessageEmbed(options);
+        return new MessageEmbed(messageOptions);
     }
+
+    async setMaxActive(maxActive: number): Promise<void> {
+        this.maxActive = maxActive;
+        await this.updateMessage();
+    }
+
+    getMaxActive(): number {
+        return this.requireAvailable ? this.available.length : this.maxActive;
+    }
+
+    getActiveUsers(): UserQueue {
+        return this.active;
+    }
+
+    getPendingUsers(): UserQueue {
+        return this.pending;
+    }
+
+    getAvailableUsers(): UserQueue {
+        return this.available;
+    }
+
+    getQueuedUsers(): UserQueue {
+        return this.queue;
+    }
+
+    isUserQueued = (user: User): boolean => (
+        this.active.has(user) || this.pending.has(user) || this.queue.has(user)
+    );
+
+    moveUserToQueue = (user: User): void => {
+        this.promptMap.remove(user)?.prompt.cancel();
+
+        this.active.remove(user);
+        this.pending.remove(user);
+
+        const index = this.queue.push(user);
+
+        this.updateMessage();
+
+        this.emit('userQueued', user, index);
+    };
+
+    moveUserToActive = (user: User): void => {
+        this.promptMap.remove(user)?.prompt.cancel();
+
+        this.queue.remove(user);
+        this.pending.remove(user);
+
+        const index = this.active.push(user);
+
+        this.updateMessage();
+
+        this.emit('userActive', user, index);
+    };
+
+    moveUserToPending = (user: User): void => {
+        this.queue.remove(user);
+        this.active.remove(user);
+
+        const index = this.pending.push(user);
+
+        this.sendPendingPrompt(user);
+        this.updateMessage();
+
+        this.emit('userPending', user, index);
+    };
+
+    resetUserPromptCounts = (user: User): void => {
+        this.promptTimeoutCountMap.add(user, {
+            timeout: 0,
+            skip: 0
+        });
+    };
+
+    addUser = (user: User): boolean => {
+        if(this.active.has(user) || this.pending.has(user) || this.queue.has(user)) {
+            return true;
+        }
+
+        if(this.active.length + this.pending.length < this.getMaxActive()) {
+            this.moveUserToActive(user);
+        } else {
+            this.resetUserPromptCounts(user);
+            this.moveUserToQueue(user);
+
+            // Check if someone has just joined the queue behind people who are pending
+            // And offer skipping to the pending people
+            this.checkAndUpdatePrompts();
+        }
+
+        this.checkQueueAndPromote();
+        this.updateMessage();
+
+        this.emit('userAdd', user);
+
+        return true;
+    };
+
+    removeUser = (user: User): void => {
+        let queueName: 'active' | 'pending' | 'queue' = null;
+        for(const checkingQueueName of ['active', 'pending', 'queue']) {
+            const queue = this[checkingQueueName];
+            if(queue.has(user)) {
+                queueName = checkingQueueName as 'active' | 'pending' | 'queue';
+                queue.remove(user);
+            }
+        }
+
+        if(this.promptMap.has(user)) {
+            this.promptMap.remove(user).prompt.cancel();
+        }
+
+        this.checkAndUpdatePrompts();
+        this.checkQueueAndPromote();
+        this.updateMessage();
+
+        this.emit('userRemove', user, queueName);
+    };
+
+    addAvailableUser = (user: User): boolean => {
+        const index = this.available.push(user);
+    
+        this.checkQueueAndPromote();
+        this.updateMessage();
+
+        this.emit('userAvailable', user, index);
+
+        return true;
+    };
+
+    removeAvailableUser = (user: User): void => {
+        this.available.remove(user);
+        this.updateMessage();
+
+        this.emit('userRemove', user, 'available');
+    };
 }

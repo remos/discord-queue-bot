@@ -1,17 +1,17 @@
 import {ComparisonSet} from './ComparisonSet';
 
-describe('ComparisonSet', ()=>{
-    it("initialises empty", ()=>{
+describe('ComparisonSet', () => {
+    it("initialises empty", () => {
         const set = new ComparisonSet(
-            ({id: a}, {id: b})=>a==b
+            ({id: a}, {id: b}) => a==b
         );
 
         expect(set.get()).toEqual([]);
     });
 
-    it("shouldn't allow duplicates when initialising", ()=>{
+    it("shouldn't allow duplicates when initialising", () => {
         const set = new ComparisonSet(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 1}]
         );
 
@@ -21,9 +21,9 @@ describe('ComparisonSet', ()=>{
         ]);
     });
 
-    it("shouldn't allow duplicates when manually adding", ()=>{
+    it("shouldn't allow duplicates when manually adding", () => {
         const set = new ComparisonSet(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 1}]
         );
 
@@ -35,22 +35,23 @@ describe('ComparisonSet', ()=>{
         ]);
     });
 
-    it("removes items", ()=>{
+    it("removes items", () => {
         const set = new ComparisonSet(
-            ({id: a}, {id: b})=>a==b,
-            [{id: 1}, {id: 2}, {id: 1}]
+            ({id: a}, {id: b}) => a==b,
+            [{id: 1}, {id: 2}, {id: 1}, {id: 3}]
         );
 
-        expect(set.remove({id: 2})).toEqual({id: 2});
+        expect(set.remove({id: 1})).toEqual({id: 1});
+        expect(set.remove({id: 3})).toEqual({id: 3});
 
         expect(set.get()).toEqual([
-            {id: 1}
+            {id: 2}
         ]);
     });
 
-    it("non-existent items are not removed", ()=>{
+    it("non-existent items are not removed", () => {
         const set = new ComparisonSet(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 1}]
         );
 
@@ -62,9 +63,9 @@ describe('ComparisonSet', ()=>{
         ]);
     });
 
-    it("has item", ()=>{
+    it("has item", () => {
         const set = new ComparisonSet(
-            ({id: a}, {id: b})=>a==b,
+            ({id: a}, {id: b}) => a==b,
             [{id: 1}, {id: 2}, {id: 1}]
         );
 

@@ -1,133 +1,174 @@
-import {User, EmojiIdentifierResolvable, MessageReaction, StringResolvable, Message, MessageOptions, MessageAdditions, APIMessage} from 'discord.js';
-import { compareEmoji } from './util';
-import { ComparisonQueue } from './ComparisonQueue';
-
-interface PromptCallback {
-    (user: User, emoji: EmojiIdentifierResolvable): void;
-}
+import {
+    User,
+    EmojiIdentifierResolvable,
+    StringResolvable,
+    Message,
+    APIMessage,
+    MessageEditOptions,
+    MessageEmbed,
+    DMChannel,
+    MessageReaction,
+    TextChannel,
+    DiscordAPIError
+} from 'discord.js';
+import {ComparisonQueue} from './ComparisonQueue';
+import { ReactionHandler, ReactionCallback } from './ReactionHandler';
+import debounce = require('debounce-promise');
 
 export interface PromptOption {
     emoji: EmojiIdentifierResolvable;
-    callback?: PromptCallback;
+    collect: ReactionCallback<boolean | void>;
 }
 
 export class UserQueue extends ComparisonQueue<User> {
     constructor(initial?: User[]) {
-        super((a: User, b: User)=>a.id === b.id, initial);
+        super((a: User, b: User) => a.id === b.id, initial);
     }
+}
+
+export interface UserPromptPromptOptions {
+    timeoutCallback?: ReactionCallback<void>;
 }
 
 export class UserPrompt {
     user: User;
     message: Message;
-    timeout: number;
-    promptOptions: PromptOption[];
-    failure?: PromptCallback;
-
-    startTime?: number;
-
+    reactionHandler: ReactionHandler;
     cancelled: boolean;
-    removed: boolean;
+    fallbackChannel: TextChannel | DMChannel;
 
-    constructor(user: User, timeout: number, promptOptions: PromptOption[], failure?: PromptCallback) {
+    constructor(user: User, fallbackChannel?: TextChannel | DMChannel) {
         this.user = user;
-        this.timeout = timeout;
-        this.promptOptions = promptOptions;
-        this.failure = failure;
-
+        this.fallbackChannel = fallbackChannel;
         this.cancelled = false;
-        this.removed = false;
+
+        this.prompt = debounce(this.prompt, 400);
     }
-    
+
+    private async getDMChannel(): Promise<DMChannel> {
+        return this.user.dmChannel || await this.user.createDM();
+    }
+
+    private async clearDMChannel(exclude: Message[] = []): Promise<Message[]> {
+        const channel = await this.getDMChannel();
+
+        // Bulk delete doesn't exist on DMChannel?
+        return Promise.all(
+            (await channel.messages.fetch())
+            .filter(({id}) => exclude.findIndex(({id: excludeId}) => id===excludeId) < 0)
+            .map(message => message.delete().catch(() => null))
+        ).catch(() => null);
+    }
+
+    // Proxy the arguments for discord.js' PartialTextBasedChannelFields.send
     async prompt(
-        options?:
-            | MessageOptions
-            | MessageAdditions
-            | APIMessage
-            | (MessageOptions & { split?: false })
-            | MessageAdditions
-            | APIMessage,
+        promptOptions: PromptOption[],
+        timeout: number,
+        additionalOptions: UserPromptPromptOptions,
+        options: MessageEditOptions | MessageEmbed | APIMessage,
     ): Promise<EmojiIdentifierResolvable>;
     async prompt(
-        content?: StringResolvable,
-        options?: MessageOptions | MessageAdditions | (MessageOptions & { split?: false }) | MessageAdditions,
+        promptOptions: PromptOption[],
+        timeout: number,
+        additionalOptions: UserPromptPromptOptions,
+        content: StringResolvable,
+        options?: MessageEditOptions | MessageEmbed,
+        onTimeout?: ReactionCallback<void>
     ): Promise<EmojiIdentifierResolvable>;
-    async prompt(...args: unknown[]): Promise<EmojiIdentifierResolvable> {
+    async prompt(
+        promptOptions: PromptOption[],
+        timeout: number,
+        additionalOptions: UserPromptPromptOptions,
+        a: unknown,
+        b?: unknown
+    ): Promise<EmojiIdentifierResolvable> {
         if(this.cancelled) {
             return;
         }
 
-        const dmChannel = this.user.dmChannel || await this.user.createDM();
-
-        this.message = await dmChannel.send(...args);
-
-        if(this.cancelled) {
-            return;
+        if(this.reactionHandler) {
+            this.reactionHandler.stop();
         }
 
-        for(const promptOption of this.promptOptions) {
-            this.message.react(promptOption.emoji);
-        }
+        const dmChannel = await this.getDMChannel();
+        await this.clearDMChannel(this.message ? [this.message] : []);
 
-        this.startTime = Date.now();
-        const reactions = await this.message.awaitReactions(
-            (reaction: MessageReaction, user: User)=>(
-                user != user.client.user &&
-                this.promptOptions.findIndex(
-                    promptOption=>compareEmoji(promptOption.emoji, reaction.emoji)
-                ) >= 0
-            ),
-            {max: 1, time: this.timeout}
-        );
-
-        this.removeMessage();
-
-        if(this.cancelled) {
-            return;
-        }
-
-        const emoji: EmojiIdentifierResolvable = reactions.size ? reactions.first().emoji : null;
-        if(emoji) {
-            const promptOption = this.promptOptions.find(promptOption=>compareEmoji(promptOption.emoji, emoji));
-            if(promptOption.callback) {
-                promptOption.callback(this.user, emoji);
+        if(this.message && this.message.editable) {
+            this.message = await this.message.edit(a, b);
+        } else {
+            await this.removeMessage();
+            if(this.cancelled) {
+                await this.removeMessage();
+                return;
             }
-        } else if(this.failure) {
-            this.failure(this.user, emoji);
+
+            try {
+                this.message = await dmChannel.send(a, b);
+            } catch(e) {
+                if(e instanceof DiscordAPIError && e.code === 50007 && this.fallbackChannel) {
+                    this.message = await this.fallbackChannel.send(a, b);
+                } else {
+                    throw e;
+                }
+            }
         }
 
-        return emoji;
-    }
-
-    private removeMessage(): void {
-        if(this.removed) {
+        // If the prompt has aborted while sending/editing message
+        if(this.cancelled) {
+            await this.removeMessage();
             return;
         }
 
-        this.removed = true;
+        promptOptions = promptOptions.map(promptOption => ({
+            emoji: promptOption.emoji,
+            collect: (reaction: MessageReaction, user: User): boolean => {
+                if(user.id !== this.user.id) {
+                    return false;
+                }
 
-        if(this.message) {
-            this.message.fetch().then(async message=>{
-                if(message) {
-                    try {
-                        await message.delete();
-                    } catch(ignored) {
-                        // Ignore failure to delete the message
+                this.removeMessage();
+                promptOption.collect(reaction, user);
+            }
+        }));
+
+        this.reactionHandler = new ReactionHandler(
+            this.message,
+            promptOptions,
+            {
+                timeout: timeout,
+                timeoutCallback: (): void => {
+                    this.removeMessage();
+                    if(additionalOptions.timeoutCallback) {
+                        additionalOptions.timeoutCallback(null, this.user);
                     }
                 }
-            });
-        }
+            }
+        );
     }
 
-    /**
-     * @returns the time remaining on the prompt
-     */
-    cancel(): number {
-        if(!this.cancelled) {
-            this.cancelled = true;
-            this.removeMessage();
+    private async removeMessage(): Promise<void> {
+        if(this.reactionHandler) {
+            this.reactionHandler.stop();
         }
 
-        return Date.now() - this.startTime;
+        if(!this.message) {
+            return;
+        }
+
+        const message = this.message;
+        delete this.message;
+        await message.delete();
+    }
+
+    cancel(): void {
+        if(this.cancelled) {
+            return;
+        }
+
+        this.cancelled = true;
+        if(this.reactionHandler) {
+            this.reactionHandler.stop();
+        }
+        this.removeMessage();
     }
 }

@@ -18,9 +18,15 @@ export class EmojiMap<T extends EmojiWrapper> {
     constructor(client: Client, options?: T[]) {
         this.client = client;
 
-        this.map = new ComparisonMap(compareEmoji);
-        for(const option of options) {
-            this.add(option);
+        this.map = new ComparisonMap<
+            EmojiIdentifierResolvable, 
+            T
+        >(compareEmoji);
+
+        if(options) {
+            for(const option of options) {
+                this.add(option);
+            }
         }
     }
 

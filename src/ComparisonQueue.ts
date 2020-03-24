@@ -30,7 +30,7 @@ export class ComparisonQueue<T> {
     }
 
     indexOf(value: T): number {
-        return this.queue.findIndex(testValue=>this.comparator(value, testValue));
+        return this.queue.findIndex(testValue => this.comparator(value, testValue));
     }
 
     remove(value: T): T {
@@ -48,9 +48,8 @@ export class ComparisonQueue<T> {
         return this.indexOf(value) >= 0;
     }
 
-    push(value: T): void {
-        this.queue.push(value);
-        this.length = this.queue.length;
+    push(value: T): number {
+        return (this.length = this.queue.push(value)) - 1;
     }
 
     shift(): T {
@@ -59,14 +58,16 @@ export class ComparisonQueue<T> {
         return value;
     }
 
-    unshift(value: T): void {
-        this.queue.unshift(value);
-        this.length = this.queue.length;
+    unshift(value: T): number {
+        this.length = this.queue.unshift(value);
+        return 0;
     }
 
-    insert(value: T, index: number): void {
+    insert(value: T, index: number): number {
         this.queue.splice(Math.min(this.queue.length, index), 0, value);
         this.length = this.queue.length;
+
+        return index;
     }
 
     map<R>(callbackFn: (value: T) => R): R[] {
@@ -76,7 +77,7 @@ export class ComparisonQueue<T> {
     concat(...queues: (ComparisonQueue<T> | T[])[]): T[] {
         return this.queue.concat(
             ...queues.map(
-                (queue: ComparisonQueue<T> | T[])=>(
+                (queue: ComparisonQueue<T> | T[]) => (
                     queue instanceof ComparisonQueue ? queue.queue : queue
                 )
             )

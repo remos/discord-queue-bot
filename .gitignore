@@ -1,4 +1,8 @@
 dist
 node_modules
 config.json
+reports
 coverage
+yarn-error.log
+# stryker temp files
+.stryker-tmp
