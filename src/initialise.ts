@@ -26,9 +26,22 @@ export interface Config {
     };
 }
 
-export async function clearChannel(channel: TextChannel): Promise<Collection<Snowflake, Message>> {
+export async function clearChannel(
+    channel: TextChannel,
+    excludedMessages: (Message | Snowflake)[] = []
+): Promise<Collection<Snowflake, Message>> {
     console.info(`Clearing ${channel.name}`);
-    return channel.bulkDelete(await channel.messages.fetch());
+
+    return channel.bulkDelete(
+        (await channel.messages.fetch())
+            .filter(message => excludedMessages.findIndex(
+                excludedMessage => (
+                    excludedMessage instanceof Message ?
+                        excludedMessage.id === message.id :
+                        excludedMessage === message.id
+                )
+            ) < 0)
+    );
 }
 
 async function initialise({
