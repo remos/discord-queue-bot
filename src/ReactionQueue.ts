@@ -334,7 +334,7 @@ export class ReactionQueue extends EventEmitter<{
 
     private checkQueueAndPromote(): void {
         while(this.active.length + this.pending.length < this.getMaxActive() && this.queue.length > 0) {
-            this.moveUserToPending(this.queue.shift());
+            this.moveUserToPending(this.queue.get(0));
         }
     }
 
@@ -342,6 +342,12 @@ export class ReactionQueue extends EventEmitter<{
         for(const entry of [...this.promptMap.getEntries()]) {
             if(entry.value.skippable !== !!this.queue.length) {
                 this.sendPendingPrompt(entry.key);
+            }
+        }
+
+        for(const user of this.pending.get()) {
+            if(!this.promptMap.has(user)) {
+                this.sendPendingPrompt(user);
             }
         }
     }
