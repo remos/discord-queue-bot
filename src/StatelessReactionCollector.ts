@@ -1,4 +1,4 @@
-import { ReactionCollector, MessageReaction, User, Snowflake, Message, CollectorFilter, ReactionCollectorOptions } from "discord.js";
+import { ReactionCollector, MessageReaction, User, Snowflake } from "discord.js";
 
 export class StatelessReactionCollector extends ReactionCollector {
     dispose(reaction: MessageReaction, user: User): Snowflake | null {
