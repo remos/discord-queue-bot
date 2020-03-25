@@ -120,7 +120,7 @@ describe('ComparisonQueue', () => {
             [{id: 1}, {id: 2}, {id: 3}, {id: 4}]
         );
 
-        queue.insert({id: 5}, 1);
+        expect(queue.insert({id: 5}, 1)).toEqual(1);
 
         expect(queue.get()).toEqual([
             {id: 1}, {id: 5}, {id: 2}, {id: 3}, {id: 4}

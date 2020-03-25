@@ -64,7 +64,8 @@ export class ComparisonQueue<T> {
     }
 
     insert(value: T, index: number): number {
-        this.queue.splice(Math.min(this.queue.length, index), 0, value);
+        index = Math.min(this.queue.length, index);
+        this.queue.splice(index, 0, value);
         this.length = this.queue.length;
 
         return index;
