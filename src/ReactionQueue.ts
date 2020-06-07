@@ -277,7 +277,6 @@ export class ReactionQueue extends EventEmitter<{
             this.emit('userPass', user, passType, false);
         }
 
-        this.checkQueueAndPromote();
         this.updateMessage();
     };
 
@@ -507,6 +506,7 @@ export class ReactionQueue extends EventEmitter<{
 
     moveUserToQueue = (user: User, targetIndex?: number): void => {
         this.moveToQueueByQueueType('queue', user, targetIndex);
+        this.checkQueueAndPromote();
     };
     moveUserToActive = (user: User, targetIndex?: number): void => {
         this.moveToQueueByQueueType('active', user, targetIndex);
@@ -557,7 +557,6 @@ export class ReactionQueue extends EventEmitter<{
             this.checkAndUpdatePrompts();
         }
 
-        this.checkQueueAndPromote();
         this.updateMessage();
 
         this.emit('userAdd', user);
