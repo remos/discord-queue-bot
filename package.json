@@ -1,7 +1,7 @@
 {
   "name": "discord-queue-bot",
   "description": "Simple queueing using reactions for discord",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "main": "dist/index.js",
   "bin": "dist/cli.js",
   "types": "dist/index.d.ts",

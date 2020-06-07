@@ -480,7 +480,7 @@ export class ReactionQueue extends EventEmitter<{
                 queue.push(user);
         } else {
             const currentIndex = queue.indexOf(user);
-            if(currentIndex !== targetIndex) {
+            if(currentIndex !== Math.max(0, targetIndex)) {
                 if(currentIndex >= 0) {
                     queue.remove(user);
                 }
@@ -506,6 +506,11 @@ export class ReactionQueue extends EventEmitter<{
 
     moveUserToQueue = (user: User, targetIndex?: number): void => {
         this.moveToQueueByQueueType('queue', user, targetIndex);
+
+        // Check if someone has just joined the queue behind people who are pending
+        // And offer skipping to the pending people
+        this.checkAndUpdatePrompts();
+
         this.checkQueueAndPromote();
     };
     moveUserToActive = (user: User, targetIndex?: number): void => {
@@ -551,10 +556,6 @@ export class ReactionQueue extends EventEmitter<{
         } else {
             this.resetUserPromptCounts(user);
             this.moveUserToQueue(user);
-
-            // Check if someone has just joined the queue behind people who are pending
-            // And offer skipping to the pending people
-            this.checkAndUpdatePrompts();
         }
 
         this.updateMessage();
