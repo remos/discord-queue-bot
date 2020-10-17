@@ -13,4 +13,4 @@ module.exports = {
         "@typescript-eslint/semi": ["error"],
         "arrow-spacing": ["error"]
     }
-}
+};
